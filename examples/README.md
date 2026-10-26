@@ -7,6 +7,8 @@ root from its own location. Optimization requires Optimization Toolbox.
    separately reconstructed plot.
 2. Run `step_by_step.m` to inspect matching, assembly and mesh before optimization.
 3. Run `reuse_guess.m` to reuse an initialization for a changed target.
+4. Run `build_database.m` to explicitly generate and save a reusable catalogue,
+   or reuse its existing compatible archive. This requires only base MATLAB.
 
 The scripts are independent usage demonstrations. The complete configuration
 reference is [config_example.m](config_example.m), directly in this folder.
@@ -45,6 +47,28 @@ or be the global optimum. See `../docs/VALIDATION.md` for measured results.
 Nothing saves transfer results or figures automatically. Save `result` or its
 self-contained `solution` explicitly if needed. Dense trajectory samples are
 returned only by `reconstruct_trajectory` and never inserted into a result.
+
+## Creating a database
+
+Run `build_database.m`. It reads the inline orbit or `files.orbit` MAT input
+and numerical options from `config_example.m`, without loading `files.database`.
+The target and transfer constraints are not used to generate encounters.
+
+The configuration provides a small explicit grid of 12 phases, five impulse
+magnitudes, 12 azimuths and one elevation, with a 50-day horizon. All generation
+settings remain in the config. Generic builder defaults remain 50 phases,
+10 magnitudes, 100 azimuths and an 85-day horizon.
+
+The script saves `outputs/orbit_moon_generated.mat`, outside version control.
+On a second run the builder checks the same orbit, grid and integration settings
+and reuses the file. With different settings it raises an error; choose a new
+output filename explicitly. The packaged `data/orbit_moon_example.mat` is never
+overwritten. Its stored integration tolerances differ from the current config,
+so the newly generated archive need not match it byte for byte.
+
+To use the generated catalogue in a transfer, set `cfg.files.database` in your
+configuration to that archive's absolute path, or a path relative to your config.
+If already loaded, assign `problem.database = database` directly instead.
 
 ## Reading step_by_step.m
 

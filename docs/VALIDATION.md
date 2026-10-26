@@ -151,6 +151,17 @@ Git attributes preserve imported numerical and Lambert source/license bytes
 so checkout line-ending conversion cannot invalidate their recorded hashes.
 The development archive is excluded from the intended version-control set.
 
+## Database-generation example, 2026-10-26
+
+The actual `examples/build_database.m` script generated 1,986 encounters from
+720 departures in 16.40 seconds using the current configured integration
+tolerances. A second run reused the same database in 0.023 seconds, with
+identical returned data and unchanged file modification time. The packaged
+catalogue's SHA-256 remained unchanged. A separate control loaded an orbit MAT
+file relative to its config while the declared transfer database did not exist;
+generation still succeeded. All 35 regression tests passed after the example
+was added. Generated archives and local controls remain outside version control.
+
 ## Numerical and presentation limits
 
 Default propagation tolerances are relative 1e-13 and absolute 1e-14, with

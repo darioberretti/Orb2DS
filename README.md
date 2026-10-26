@@ -87,6 +87,10 @@ an existing file. The packaged catalogue records its original generation
 tolerances separately from the current solver defaults. Large catalogues
 remain external shared inputs or release assets.
 
+Run [examples/build_database.m](examples/build_database.m) for an explicit
+small-grid generation and cache-reuse demonstration. Its parameters are in
+`config_example.m`; it saves a separate archive under ignored `outputs/`.
+
 ## Compact solutions and validation
 
 Read `result.status`, `result.validation.checks` and the solver's own stopping

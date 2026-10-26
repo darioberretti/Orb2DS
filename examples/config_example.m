@@ -172,13 +172,14 @@ cfg.options.output.keep_attempt_solutions = false; % Keep compact per-start reco
 %% Explicit database-generation grid
 
 % Used ONLY by build_orbit_moon_database, not find_transfer/load_case.
-% These are generic builder defaults, not the packaged catalogue's recipe:
-% that smaller archive used 12 phases, 5 magnitudes, 12 azimuths and 50 days.
-cfg.options.database.phases = (0:49) / 50;            % Normalized phases [0,1]; 1 maps to 0.
-cfg.options.database.impulses_m_s = linspace(0, 50, 10); % Burn magnitudes [m/s].
-cfg.options.database.azimuths_rad = (0:99) * 2 * pi / 100; % Rotating XY azimuths [rad].
+% Small runnable grid: 12 phases x 5 magnitudes x 12 azimuths = 720 departures.
+% Sampling matches the packaged example; integration uses the current options
+% above, so the generated file is not claimed to be byte-identical to it.
+cfg.options.database.phases = (0:11) / 12;           % Normalized phases; default (0:49)/50.
+cfg.options.database.impulses_m_s = [0, 10, 20, 30, 50]; % Magnitudes [m/s]; default 10 values.
+cfg.options.database.azimuths_rad = (0:11) * 2 * pi / 12; % XY azimuths [rad]; default 100 values.
 cfg.options.database.elevations_rad = 0;             % Out-of-plane elevations [rad].
-cfg.options.database.horizon_days = 85;              % Forward encounter search [days].
+cfg.options.database.horizon_days = 50;              % Forward horizon [days]; default 85.
 % Reusing an existing archive requires matching orbit, grid and integration
 % settings. A mismatched existing filename raises an error; it is not replaced.
 
