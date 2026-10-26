@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "If you use Orb2DS in your research, please cite this software."
+type: software
+title: "Orb2DS: Orbit-to-Deep-Space Transfer Library"
+authors:
+  - family-names: Berretti
+    given-names: Dario
+repository-code: "https://github.com/darioberretti/Orb2DS"
+url: "https://github.com/darioberretti/Orb2DS"
+license: MIT

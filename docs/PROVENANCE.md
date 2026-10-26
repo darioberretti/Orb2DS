@@ -21,8 +21,12 @@ tree snapshot, not an asserted clean upstream commit.
 
 FEX-Lambert is the previously adopted v1.4 implementation, whose recorded
 upstream commit is `f220826e6ac688ae8dfd2e8c9374872e43ea9fb4`; the original
-two-clause BSD license is preserved beside its source. No global licensing
-claim about other historical files follows from that license.
+two-clause BSD license is preserved beside its source. That component retains
+its own license and copyright; the root MIT license applies to the project
+code, documentation and bundled example/test data, excluding separately licensed
+third-party material.
+The MIT license does not relicense the historical thesis/reproduction archives,
+which are not included in this repository's versioned distribution.
 
 ## Explicit canonical changes
 

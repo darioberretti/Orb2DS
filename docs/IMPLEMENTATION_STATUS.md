@@ -6,7 +6,9 @@ the temporary `LibraryName` and nested library directory have been removed.
 The old baseline and development outputs have a complete verified local
 snapshot in `.dev/archive/2026-10-26`, excluded from version control. The distinct historical
 source and audit records are retained there too. The sibling source tree and
-Git history were not modified; no publication or Python port has been performed.
+Git history were not modified by that cleanup. The project code and documentation
+are now MIT-licensed, with separately licensed Lambert source preserved. The
+native Python port remains planned.
 
 Implemented:
 

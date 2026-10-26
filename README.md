@@ -133,6 +133,16 @@ coverage of every periodic family or transfer feasibility for every orbit.
 Exact/windowed final-epoch algorithms, MJD2000/ephemeris preparation, additional
 objectives/backends and the native Python port remain future work.
 
-This is an initial research version, validated on the documented cases. A
-project-wide license has not yet been selected; the bundled Lambert component
-retains its own BSD license under `+orb2ds/+thirdparty/+fexlambert/License.txt`.
+This is an initial research version, validated on the documented cases.
+
+## License and citation
+
+The project code, documentation and bundled example/test data are available under
+the [MIT License](LICENSE), except where separate third-party notices apply.
+The bundled FEX-Lambert component
+by Rody Oldenhuis retains its original
+[BSD-2-Clause license](+orb2ds/+thirdparty/+fexlambert/License.txt). Its source and
+license notice are preserved unchanged; the project license does not replace them.
+
+If you use Orb2DS in research, please cite the software using
+[CITATION.cff](CITATION.cff) or GitHub's **Cite this repository** option.
