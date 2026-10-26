@@ -1,0 +1,38 @@
+[
+  {
+    "source": "Functions\\rhs\\rhs_CR3BP_3D.m",
+    "destination": "+orb2ds\\+internal\\rhs_CR3BP_3D.m",
+    "source_sha256": "0E60259A7070EF8023A12FEBA96C075F7BF2050B5D2CFBB9FCDC6FF2CB96A021",
+    "destination_sha256": "0E60259A7070EF8023A12FEBA96C075F7BF2050B5D2CFBB9FCDC6FF2CB96A021"
+  },
+  {
+    "source": "Functions\\rhs\\rhs_CR3BP_3D_STM.m",
+    "destination": "+orb2ds\\+internal\\rhs_CR3BP_3D_STM.m",
+    "source_sha256": "2DA34FDF6212BBCBB13F81B870DB3EE6D42C3F36EF91229059CF3A0195B8E3C5",
+    "destination_sha256": "2DA34FDF6212BBCBB13F81B870DB3EE6D42C3F36EF91229059CF3A0195B8E3C5"
+  },
+  {
+    "source": "Functions\\Patching\\rp_circle_from_vinfplus.m",
+    "destination": "+orb2ds\\+internal\\rp_circle_from_vinfplus.m",
+    "source_sha256": "7B64D2F4EC64134CF79EE68E4A84AB15B874D26DF6E8876D102E32E295CAB08D",
+    "destination_sha256": "7B64D2F4EC64134CF79EE68E4A84AB15B874D26DF6E8876D102E32E295CAB08D"
+  },
+  {
+    "source": "third_party\\FEX-Lambert\\lambert.m",
+    "destination": "+orb2ds\\+thirdparty\\+fexlambert\\lambert.m",
+    "source_sha256": "9ECF58DC1CD1F5C9B8F3BAB904B9A496165D23FD8217055810D926EC1F2551F7",
+    "destination_sha256": "9ECF58DC1CD1F5C9B8F3BAB904B9A496165D23FD8217055810D926EC1F2551F7"
+  },
+  {
+    "source": "third_party\\FEX-Lambert\\License.txt",
+    "destination": "+orb2ds\\+thirdparty\\+fexlambert\\License.txt",
+    "source_sha256": "17947D0A93C6E48484CB1928856D5F34F69B05E7086BA92B73C30080DFC2F518",
+    "destination_sha256": "17947D0A93C6E48484CB1928856D5F34F69B05E7086BA92B73C30080DFC2F518"
+  },
+  {
+    "source": "third_party\\FEX-Lambert\\README.md",
+    "destination": "+orb2ds\\+thirdparty\\+fexlambert\\README.md",
+    "source_sha256": "B183A581E94FF9EB0E7FB9FAB2B98E34C9D46BA40CAED11056A5171341E705AE",
+    "destination_sha256": "B183A581E94FF9EB0E7FB9FAB2B98E34C9D46BA40CAED11056A5171341E705AE"
+  }
+]

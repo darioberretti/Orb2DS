@@ -1,0 +1,86 @@
+{
+  "matlab_version": "25.2.0.3177638 (R2025b) Update 5",
+  "tests_total": 29,
+  "tests_passed": 29,
+  "tests_failed": 0,
+  "tests_incomplete": 0,
+  "tests_seconds": 10.936358400000001,
+  "public_status": "feasible_converged",
+  "public_delta_v_m_s": 272.63835256851507,
+  "public_transfer_days": 24.999116693960126,
+  "public_solver_exitflag": 2,
+  "public_solver_iterations": 1442,
+  "public_validation": {
+    "is_feasible": true,
+    "max_position_defect_km": 5.93357800733239E-9,
+    "max_velocity_defect_km_s": 2.6224011948691195E-12,
+    "departure_position_error_km": 1.0709075073043783E-23,
+    "departure_velocity_error_km_s": 3.252606517639559E-19,
+    "min_earth_altitude_km": 999.99999999538886,
+    "min_moon_altitude_km": 154.12962066347109,
+    "achieved_vinf_eci_km_s": [
+      -2.0511679723998721,
+      1.4213996556899808,
+      -0.15751438830706127
+    ],
+    "requested_vinf_eci_km_s": [
+      -2.0511679723998526,
+      1.4213996556899797,
+      -0.15751438830705969
+    ],
+    "target_error_km_s": 1.9635279775116604E-14,
+    "earth_energy_km2_s2": 3.1262389073591734,
+    "earth_radial_speed_km_s": -4.3116741975533359E-16,
+    "moon_radial_speed_km_s": 1.0518424885588868E-14,
+    "delta_v_m_s": 272.638352568515,
+    "time_violations_days": -25.000883306039874,
+    "checks": {
+      "segment_endpoints_reached": true,
+      "position_defects": true,
+      "velocity_defects": true,
+      "departure": true,
+      "orbit_closure": true,
+      "target": true,
+      "periapses": true,
+      "clearance": true,
+      "impulse_policy": true,
+      "timing": true
+    },
+    "chained": {
+      "reached_final_epoch": true,
+      "endpoint_position_error_km": 1.161579050485868E-5,
+      "endpoint_velocity_error_km_s": 8.2808660076030158E-9,
+      "closes_within_local_tolerances": true,
+      "target_error_km_s": 1.7732677951002153E-10,
+      "min_earth_altitude_km": 999.99999913025113,
+      "min_moon_altitude_km": 154.12962063591272,
+      "is_feasible": true
+    }
+  },
+  "historical_control": {
+    "input": "frozen unoptimized Venus flexibility setup 1",
+    "maximum_iterations_per_stage": 150,
+    "exitflags": [
+      1,
+      0
+    ],
+    "iterations": [
+      9,
+      150
+    ],
+    "delta_v_m_s": 550.32844626184146,
+    "maximum_constraint_violation": 1.1832407276202161E-10,
+    "maximum_independent_segment_defect_nd": 1.0778289372126437E-10,
+    "time_of_flight_days": 66.21574092289778,
+    "elapsed_seconds": 83.7768636,
+    "mu": 0.01215,
+    "distance_km": 384400,
+    "time_unit_days": 4.3429921478701967
+  },
+  "reinitialization": {
+    "changed_target_status": "feasible_converged",
+    "changed_target_delta_v_m_s": 268.81776398854862,
+    "rth_status": "feasible_without_optimization_convergence",
+    "rth_delta_v_m_s": 272.63835256849592
+  }
+}
