@@ -1,21 +1,23 @@
 function figure_handle = plot_trajectory(trajectory, settings)
-%PLOT_TRAJECTORY Show a reconstructed transfer using the thesis trajectory style.
+%PLOT_TRAJECTORY Show reconstructed arcs, shooting nodes and scaled impulse arrows.
 %
 % PROTOTYPE:
 %   figure_handle = orb2ds.plot_trajectory(trajectory, settings)
 %
 % DESCRIPTION:
 %   Black propagated arcs and node circles, blue scaled impulse arrows,
-%   initial/final markers and Times labels follow the thesis plots. Separate
+%   initial/final markers and Times labels identify the transfer. Separate
 %   arcs preserve shooting defects. The default is an XY view in rotating DU;
 %   the ECI view uses km and includes the circular Moon path. Three-dimensional
 %   data are retained in either view. Does not save or modify the input.
 %
 % INPUT:
 %   trajectory  Output of reconstruct_trajectory; physical rotating states.
-%   settings    Optional structure: visible ('on'), frame ('rotating' or
+%   settings    Optional structure: visible (MATLAB root default, normally
+%               'on'), frame ('rotating' or
 %               'eci'), view ([0, 90] azimuth/elevation in degrees),
-%               show_nodes (true), show_impulses (true), impulse_scale (0.38).
+%               show_nodes (true), show_impulses (true), impulse_scale (0.38),
+%               show_defects (false) joins propagated ends to stored nodes.
 %               The longest arrow spans impulse_scale times the trajectory
 %               extent; arrows keep relative burn magnitudes, not length units.
 % OUTPUT:
@@ -24,14 +26,15 @@ function figure_handle = plot_trajectory(trajectory, settings)
 if nargin < 2
     settings = struct();
 end
-defaults = struct('visible', 'on', 'frame', 'rotating', 'view', [0, 90], ...
-    'show_nodes', true, 'show_impulses', true, 'impulse_scale', 0.38);
+defaults = struct('visible', get(groot, 'DefaultFigureVisible'), 'frame', 'rotating', 'view', [0, 90], ...
+    'show_nodes', true, 'show_impulses', true, 'impulse_scale', 0.38, 'show_defects', false);
 settings = orb2ds.internal.merge_options(defaults, settings, 'plot');
 settings.frame = validatestring(settings.frame, {'rotating', 'eci'});
 validateattributes(settings.view, {'double'}, {'size', [1, 2], 'real', 'finite'});
 validateattributes(settings.impulse_scale, {'double'}, {'scalar', 'real', 'finite', 'nonnegative'});
 validateattributes(settings.show_nodes, {'logical'}, {'scalar'});
 validateattributes(settings.show_impulses, {'logical'}, {'scalar'});
+validateattributes(settings.show_defects, {'logical'}, {'scalar'});
 model = trajectory.model;
 nodes = trajectory.nodes.state_post(:, 1:3);
 impulses = trajectory.nodes.delta_v_km_s;
@@ -71,10 +74,27 @@ axes_handle = axes('Parent', figure_handle, 'DataAspectRatio', [1, 1, 1], ...
 hold(axes_handle, 'on');
 for index = 1:numel(positions)
     position = positions{index};
+    label = 'Transfer';
+    color = [0, 0, 0];
+    if isfield(trajectory.segments{index}, 'label')
+        label = trajectory.segments{index}.label;
+        color = trajectory.segments{index}.color;
+    end
     line_handle = plot3(axes_handle, position(:, 1), position(:, 2), position(:, 3), ...
-        'k-', 'LineWidth', 1.2, 'DisplayName', 'Transfer');
-    if index > 1
+        '-', 'Color', color, 'LineWidth', 1.2, 'DisplayName', label);
+    if index > 1 && strcmp(label, 'Transfer')
         line_handle.HandleVisibility = 'off';
+    end
+end
+% Position gaps are independent of the receiving node's velocity impulse.
+if settings.show_defects && isfield(trajectory, 'defects')
+    for index = 1:numel(positions)
+        ends = [positions{index}(end, :); nodes(index + 1, :)];
+        line_handle = plot3(axes_handle, ends(:, 1), ends(:, 2), ends(:, 3), ...
+            'r--', 'LineWidth', 1, 'DisplayName', 'Position defects');
+        if index > 1
+            line_handle.HandleVisibility = 'off';
+        end
     end
 end
 if settings.show_nodes
@@ -85,6 +105,16 @@ plot3(axes_handle, nodes(1, 1), nodes(1, 2), nodes(1, 3), 'bo', ...
     'MarkerSize', 9, 'LineWidth', 2, 'DisplayName', 'Departure');
 plot3(axes_handle, nodes(end, 1), nodes(end, 2), nodes(end, 3), 'ro', ...
     'MarkerSize', 9, 'LineWidth', 2, 'DisplayName', 'Arrival');
+if isfield(trajectory, 'refinement_start')
+    marker = trajectory.refinement_start;
+    state = marker.state;
+    if strcmp(settings.frame, 'eci')
+        state = orb2ds.internal.frames(state, marker.time_days, model, 'to_eci');
+    end
+    position = state(1:3) / length_unit;
+    plot3(axes_handle, position(1), position(2), position(3), 'md', ...
+        'MarkerSize', 9, 'LineWidth', 2, 'DisplayName', 'Refinement start');
+end
 
 % Keep physical body locations and the inertial Moon path in the viewport.
 if strcmp(settings.frame, 'eci')
@@ -102,7 +132,7 @@ else
     bounds = [points; nodes; earth; moon];
 end
 
-% Scale arrows uniformly and suppress negligible burns, as in the thesis plots.
+% Scale arrows uniformly and suppress burns below the relative display cutoff.
 strength = vecnorm(impulses, 2, 2);
 if settings.show_impulses && settings.impulse_scale > 0 && max(strength) > 0
     active = strength > 1e-4 * max(strength);

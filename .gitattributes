@@ -5,7 +5,7 @@
 *.pdf binary
 *.mp4 binary
 
-# Preserve the imported source/license bytes recorded in source_manifest.json.
+# Preserve numerical kernels and third-party source/license bytes across checkouts.
 +orb2ds/+internal/rhs_CR3BP_3D.m -text
 +orb2ds/+internal/rhs_CR3BP_3D_STM.m -text
 +orb2ds/+internal/rp_circle_from_vinfplus.m -text

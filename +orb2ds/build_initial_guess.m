@@ -20,6 +20,13 @@ for index = 1:numel(candidates)
     transfer = orb2ds.assemble_transfer(problem, candidates(index), supplied);
     if ~isempty(transfer)
         seed = orb2ds.mesh_transfer(problem, transfer, supplied);
+        options = orb2ds.internal.options(supplied);
+        if options.output.plot_initial_guess
+            figure_handle = orb2ds.plot_initial_guess(transfer);
+            if strcmp(figure_handle.Visible, 'on')
+                drawnow;
+            end
+        end
         diagnostics.selected_candidate = index;
         return
     end

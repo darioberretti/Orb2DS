@@ -5,11 +5,11 @@ function [candidates, diagnostics] = find_legs(problem, supplied)
 %   [candidates, diagnostics] = orb2ds.find_legs(problem, options)
 %
 % DESCRIPTION:
-%   Retain the thesis altitude search, tangent Lambert construction, lunar
-%   speed/turning-angle screening and Earth-burn ranking. Each Earth-side
-%   candidate selects its closest feasible lunar speed. Unlike the historical
-%   table, local boundary velocity and incoming asymptotic velocity have
-%   separate meanings. All calculations share the supplied physical model.
+%   Search Earth-perigee altitudes, construct tangent Lambert legs, screen
+%   lunar speed/turning angles and rank matches by estimated Earth burn.
+%   Each Earth-side candidate selects its closest feasible lunar speed.
+%   Local encounter-boundary velocity and incoming asymptotic velocity are
+%   separate quantities. All calculations use the supplied physical model.
 %
 % INPUT:
 %   problem  Orbit, target, loaded canonical database, optional constraints.
@@ -68,7 +68,7 @@ end
 end
 
 function candidates = evaluate_altitude(problem, database, height, options)
-%EVALUATE_ALTITUDE Sample the thesis Earth-perigee and Moon-phase geometry.
+%EVALUATE_ALTITUDE Sample Earth-perigee directions and lunar orbital angles.
 model = problem.orbit.model;
 target = orb2ds.internal.target_eci(problem.target, 0);
 [positions, velocities] = orb2ds.internal.rp_circle_from_vinfplus( ...

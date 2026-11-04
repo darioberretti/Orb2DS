@@ -5,10 +5,11 @@ function transfer = assemble_transfer(problem, candidate, supplied)
 %   transfer = orb2ds.assemble_transfer(problem, candidate, options)
 %
 % DESCRIPTION:
-%   Extract the thesis perilune/backward-forward flyby and joined CR3BP/
-%   Earth-two-body seed construction. Keep the actual SOI entry, perilune
-%   and exit epochs, patch defects, and terminal pre/post-impulse distinction.
-%   Use the canonical Moon velocity, not the historical inverse-speed offset.
+%   Construct a lunar flyby by propagating backward and forward from a
+%   mean-speed bisector anchor. Join the orbit-Moon and flyby CR3BP arcs to
+%   an Earth-two-body arrival arc. Retain lunar entry/closest-approach/exit
+%   epochs, patch defects and terminal pre/post-impulse states. Frame
+%   transforms use the circular lunar velocity from the supplied model.
 %
 % INPUT:
 %   problem    Current physical problem; no database access is required.
@@ -43,7 +44,7 @@ if radius < minimum
     return
 end
 
-% Preserve the historical bisector construction, with one consistent GM.
+% Construct the flyby anchor from mean incoming/outgoing speed and bisectors.
 peri_position = radius / (2 * speed * sin(turn / 2)) * (incoming - outgoing);
 peri_velocity = sqrt(speed^2 + 2 * model.gm_moon_km3_s2 / radius) / ...
     (2 * speed * cos(turn / 2)) * (incoming + outgoing);
@@ -92,7 +93,7 @@ transfer = struct('schema_version', 1, 'orbit', problem.orbit, 'arcs', arcs, ...
     'terminal_impulse_eci_km_s', candidate.moon_earth.delta_v_km_s, ...
     'integration', options.integration, 'provenance', candidate.provenance);
 transfer.provenance.flyby_seed = ...
-    'historical mean-speed bisector; periapsis stationarity is enforced in the NLP';
+    'mean-speed bisector; periapsis stationarity is enforced in the NLP';
 end
 
 function [value, terminal, direction] = flyby_boundary(~, state, model)

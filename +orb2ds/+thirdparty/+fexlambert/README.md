@@ -1,13 +1,14 @@
 # FEX-Lambert v1.4
 
-This directory vendors the two files required from Rody Oldenhuis's
-[FEX-Lambert v1.4](https://github.com/rodyo/FEX-Lambert/releases/tag/v1.4).
+This directory contains Rody Oldenhuis's
+[FEX-Lambert v1.4](https://github.com/rodyo/FEX-Lambert/releases/tag/v1.4)
+source and its [BSD-2-Clause license](License.txt).
 
-- Upstream commit: `f220826e6ac688ae8dfd2e8c9374872e43ea9fb4`
-- Upstream `lambert.m` SHA-256:
-  `9ECF58DC1CD1F5C9B8F3BAB904B9A496165D23FD8217055810D926EC1F2551F7`
-- License: 2-clause BSD; see `License.txt`
+Upstream commit: `f220826e6ac688ae8dfd2e8c9374872e43ea9fb4`.
+The solver implementation and license notice are distributed unchanged.
 
-The source file is kept under its upstream name. Repository code calls it
-through `rpo2ds.solve_lambert`, which fixes the units, array shapes, and
-zero-revolution short-way branch used by this reproduction.
+Orb2DS calls `orb2ds.thirdparty.fexlambert.lambert` through
+`orb2ds.internal.solve_lambert`. The wrapper supplies positions in km,
+time of flight in days and gravitational parameter in km^3/s^2; it returns
+velocities in km/s and checks the solver's success flag. Transfer matching
+uses the zero-revolution retrograde branch.

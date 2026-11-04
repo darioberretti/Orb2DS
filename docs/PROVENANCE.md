@@ -1,97 +1,49 @@
-# Source and scientific provenance
+# Attribution and bundled data
 
-The local development source is the sibling `rpo-thesis-reproduction` repository.
-The library itself has no runtime path dependency on that repository or the
-private `TESI/Code` workspace. `source_manifest.json` records source/destination
-SHA-256 hashes for the six byte-identical imported files. It describes a working-
-tree snapshot, not an asserted clean upstream commit.
+Orb2DS code, documentation and bundled example/test data use the
+[MIT License](../LICENSE). The Lambert solver has a separate license.
 
-## Reused numerical code
+## Lambert solver
 
-| Source component | Library treatment |
-|---|---|
-| `Functions/rhs/rhs_CR3BP_3D.m` | Byte-identical state dynamics under `orb2ds.internal`. |
-| `Functions/rhs/rhs_CR3BP_3D_STM.m` | Byte-identical analytic state/STM dynamics. |
-| `Functions/Patching/rp_circle_from_vinfplus.m` | Byte-identical three-dimensional outgoing-perigee sampler. |
-| `third_party/FEX-Lambert/lambert.m` and accompanying license/README | Byte-identical, namespaced vendored source with its original license. |
-| `Functions/+rpo2ds/solve_lambert.m` and `RPO2DS_solve_perp_lambert_tof.m` | Extracted zero-revolution retrograde sign convention and bracket/bisection search; no global addpath side effect. |
-| `RPO_Moon_Earth_guess.m`, `MoonEarth_RPOMoon_cellVersion_opt.m` | Extracted altitude growth/improvement, speed neighbors, deflection screen, Earth-burn ranking and closest-speed matching. |
-| `RPO2DS_transfer.m` assembly/impulse/layout stages | Extracted finite flyby, CR3BP/Earth-two-body arc assembly, event anchors and Oshima charts into separate functions. |
-| `constr_CR3BP_phase_core.m`, regularized objectives and radial-event helpers | Same multiple-shooting/impulse/phase/periapsis definitions, expressed through the new physical contract. |
+The bundled FEX-Lambert v1.4 implementation is by Rody Oldenhuis. Its source is
+[`lambert.m`](../+orb2ds/+thirdparty/+fexlambert/lambert.m), with the
+[BSD-2-Clause license](../+orb2ds/+thirdparty/+fexlambert/License.txt) and
+[component information](../+orb2ds/+thirdparty/+fexlambert/README.md) alongside it.
+That license and copyright notice apply to the component.
 
-FEX-Lambert is the previously adopted v1.4 implementation, whose recorded
-upstream commit is `f220826e6ac688ae8dfd2e8c9374872e43ea9fb4`; the original
-two-clause BSD license is preserved beside its source. That component retains
-its own license and copyright; the root MIT license applies to the project
-code, documentation and bundled example/test data, excluding separately licensed
-third-party material.
-The MIT license does not relicense the historical thesis/reproduction archives,
-which are not included in this repository's versioned distribution.
+Orb2DS calls it through `orb2ds.internal.solve_lambert`, using positions in km,
+flight time in days and velocities in km/s. Transfer matching uses the
+zero-revolution retrograde branch.
 
-## Explicit canonical changes
+## Bundled numerical kernels
 
-The historical reference conventions are retained in a separate control, not
-silently relabeled as coherent canonical inputs:
+`+orb2ds/+internal/rhs_CR3BP_3D.m` implements spatial circular restricted
+three-body dynamics; `rhs_CR3BP_3D_STM.m` adds the analytic state-transition
+matrix equations. `rp_circle_from_vinfplus.m` samples Earth-perigee directions
+for a prescribed outgoing asymptote. All runtime dependencies are included
+in the repository or listed in the [setup guide](../README.md).
 
-- Derive one circular angular rate, normalization, mass ratio and body parameters
-  from the declared model. The default preserves the source orbit mass ratio
-  0.0121506683 by deriving the Moon GM from Earth GM 398600.433. Distance is
-  384405 km; body radii are 6378 and 1738 km. Old inconsistent TU/VU values are
-  not independent inputs to the new model.
-- The source database name `vInfMoon_RTH` describes local velocity at the SOI
-  boundary (`docs/DATA.md:45-50`). The new catalogue retains local velocity and
-  separately derives the inbound Kepler asymptote from the full relative state.
-  Matching uses the explicitly named asymptotic quantity.
-- Replace the source `RTH2ECI_moon` literal inverse-speed offset with the circular
-  Moon velocity derived from the canonical model. Position/velocity transforms
-  use the same angular origin and omega-cross-position terms.
-- Keep the historical mean-speed flyby bisector as an approximate seed anchor.
-  Unequal incoming/outgoing speeds can leave a radial defect there; true lunar
-  periapsis stationarity is enforced and independently checked by the NLP.
-- Store compact arc recipes and sample them explicitly for meshing, preserving
-  SOI/periapsis events. Temporary dense interpolation histories from the old
-  driver are not copied into the library's results.
-- The Earth boundary expresses the required periapsis velocity from the requested
-  asymptote. Its zero set is the same hyperbolic-periapsis condition, while trial
-  evaluation avoids a square root of negative energy. Validation independently
-  computes achieved energy/asymptotes from the actual state.
-- Shooting STMs are analytic; normalized phase derivatives include the period.
-  Small local event derivatives use complex-step differentiation and are checked
-  by independent central finite differences. Solar target rotation is evaluated
-  at the actual final epoch.
-- One explicit numerical minimum segment duration prevents collapsed epochs.
-  Current default integration/constraint tolerances were checked against chained
-  closure, not just the solver exit flag. Finite numerical search limits remain
-  distinct from physical mission constraints.
+## Example catalogue
 
-These changes preserve the method's scientific stages and ranking while making
-the model, data meanings, units and acceptance criteria explicit. They do not
-promise byte-identical initial guesses or the same local optimum as the frozen
-IPOPT thesis calculation. See VALIDATION.md for measured controls.
+[`data/orbit_moon_example.mat`](../data/orbit_moon_example.mat) contains a
+schema-1 database generated with `orb2ds.build_orbit_moon_database`. Its grid
+uses 12 departure phases, impulse magnitudes 0, 10, 20, 30 and 50 m/s,
+12 in-plane directions and a 50-day propagation horizon. This produces
+720 sampled departures and 1,986 inward lunar encounters. Zero-magnitude
+impulses repeat across direction samples. Generation integration tolerances
+are relative 1e-12 and absolute 1e-12.
 
-## Packaged data
+The database embeds its orbit, model, grid, integration settings and velocity
+conventions. The example configuration supplies a compatible orbit and an
+outgoing Earth excess-velocity target. Generate a matching database when
+changing the orbit, model or catalogue sampling.
 
-`data/orbit_moon_example.mat` was freshly generated by the canonical builder
-using 12 phases, five impulse magnitudes (0, 10, 20, 30, 50 m/s), 12 planar
-directions and a 50-day horizon. Its generation tolerances are 1e-12/1e-12.
-Its 1,986 rows include repeated physically equivalent departures where the
-explicit sampling grid repeats them. It contains states at encounters, not
-trajectory histories.
+## Test fixture
 
-The reference normalized state and period come from the small thesis orbit
-input. The Venus target vector comes from `rpo_to_deep_space_targets.mat`.
-The packaged model and catalogue are coherent new inputs, with declared
-source meanings; missing historical metadata have not been invented.
+[`tests/fixtures/validated_transfer.mat`](../tests/fixtures/validated_transfer.mat)
+contains an optimized compact transfer and its problem definition. The tests
+use it for reconstruction, validation, reinitialization and derivative checks.
+Matching and assembly tests construct guesses using the example catalogue.
 
-`tests/fixtures/validated_transfer.mat` is an optimized output used to test
-reconstruction, validation and reinitialization. It is never presented as a
-freshly constructed seed. Fresh matching/assembly tests use the catalogue;
-the recorded full public-API solve starts from that same configuration.
-
-Local development experiments and bounded historical controls were moved on
-2026-10-26 to `.dev/archive/2026-10-26/development` in the repository root,
-outside the library. The old baseline and its design/audit notes also have a
-complete SHA-256-verified snapshot there. The distinct historical
-`RPO_planar_sweep_for_sanchez.m` is retained separately. No source or experiment
-was lost by removing the redundant active copies. These local archive contents
-are excluded from Git and are not public entry points or runtime dependencies.
+See [CONTRACTS.md](CONTRACTS.md) for data fields and physical conventions, and
+[VALIDATION.md](VALIDATION.md) for the numerical checks.

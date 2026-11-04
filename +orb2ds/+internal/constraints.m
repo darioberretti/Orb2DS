@@ -23,7 +23,7 @@ count = nlp.n_nodes;
 model = nlp.model;
 with_gradient = nargout > 2;
 equality = zeros(6 * count + 5, 1);
-inequality = zeros(2 * count + 2, 1);
+inequality = zeros(2 * count + 3, 1);
 J = sparse(numel(equality), nlp.n_variables);
 G = sparse(numel(inequality), nlp.n_variables);
 
@@ -70,23 +70,27 @@ end
 % Body clearance is enforced at nodes and checked again on full arcs later.
 earth_position = decoded.states(:, 1:3) + [model.mu, 0, 0];
 moon_position = decoded.states(:, 1:3) - [1 - model.mu, 0, 0];
-inequality(1:count) = nlp.min_earth^2 - sum(earth_position.^2, 2);
-inequality(count + (1:count)) = nlp.min_moon^2 - sum(moon_position.^2, 2);
+earth_radius = sqrt(sum(earth_position.^2, 2));
+moon_radius = sqrt(sum(moon_position.^2, 2));
+inequality(1:count) = nlp.min_earth - earth_radius;
+inequality(count + (1:count)) = nlp.min_moon - moon_radius;
 for index = 1:count
     columns = 9 * (index - 1) + (1:3);
-    G(index, columns) = -2 * earth_position(index, :);
-    G(count + index, columns) = -2 * moon_position(index, :);
+    G(index, columns) = -earth_position(index, :) / earth_radius(index);
+    G(count + index, columns) = -moon_position(index, :) / moon_radius(index);
 end
 
-% Retain the thesis lunar/Earth periapsis conditions.
+% Enforce lunar/Earth radial stationarity and nonnegative radial acceleration.
 moon_state = decoded.states(nlp.moon_node, :).';
 [moon_speed, moon_acceleration] = orb2ds.internal.radial_event( ...
     moon_state, [1 - model.mu; 0; 0], model.mu);
 [~, earth_acceleration] = orb2ds.internal.radial_event( ...
     decoded.states(end, :).', [-model.mu; 0; 0], model.mu);
 equality(6 * count + 1) = moon_speed;
-equality(6 * count + (2:5)) = orb2ds.internal.terminal_boundary( ...
+[boundary, energy_guard] = orb2ds.internal.terminal_boundary( ...
     decoded.states(end, :).', decoded.times(end), nlp);
+equality(6 * count + (2:5)) = boundary;
+inequality(2 * count + 3) = energy_guard;
 inequality(2 * count + (1:2)) = -[moon_acceleration; earth_acceleration];
 if with_gradient
     step = 1e-20;
@@ -99,17 +103,23 @@ if with_gradient
         J(6 * count + 1, column) = imag(speed) / step;
         G(2 * count + 1, column) = -imag(acceleration) / step;
         endpoint = decoded.states(end, :).' + perturbation;
-        boundary = orb2ds.internal.terminal_boundary(endpoint, decoded.times(end), nlp);
+        [boundary, energy_guard] = orb2ds.internal.terminal_boundary(endpoint, decoded.times(end), nlp);
+        G(2 * count + 3, 9 * (count - 1) + component) = imag(energy_guard) / step;
         J(6 * count + (2:5), 9 * (count - 1) + component) = imag(boundary) / step;
         [~, acceleration] = orb2ds.internal.radial_event(endpoint, [-model.mu; 0; 0], model.mu);
         G(2 * count + 2, 9 * (count - 1) + component) = -imag(acceleration) / step;
     end
-    boundary = orb2ds.internal.terminal_boundary(decoded.states(end, :).', ...
+    [boundary, energy_guard] = orb2ds.internal.terminal_boundary(decoded.states(end, :).', ...
         decoded.times(end) + 1i * step, nlp);
     time_derivative = imag(boundary) / step;
     time_columns = [nlp.duration_indices, nlp.epoch_index, nlp.wait_index(isempty(nlp.epoch_index))];
     J(6 * count + (2:5), time_columns) = repmat(time_derivative, 1, numel(time_columns));
+    G(2 * count + 3, time_columns) = imag(energy_guard) / step;
 end
+equality = nlp.equality_scale .* equality;
+inequality = nlp.inequality_scale .* inequality;
+J = spdiags(nlp.equality_scale, 0, numel(equality), numel(equality)) * J;
+G = spdiags(nlp.inequality_scale, 0, numel(inequality), numel(inequality)) * G;
 gradient_equality = J.';
 gradient_inequality = G.';
 end

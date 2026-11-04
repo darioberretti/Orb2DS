@@ -25,6 +25,7 @@ if nargin < 2
 end
 options = orb2ds.internal.options(supplied);
 problem = orb2ds.internal.check_problem(problem);
+orb2ds.internal.check_solver(options);
 assert(options.patching.n_candidates >= options.n_starts, 'orb2ds:Options', ...
     'patching.n_candidates must be at least n_starts.');
 [candidates, diagnostics] = orb2ds.find_legs(problem, options);
@@ -42,6 +43,13 @@ for index = 1:numel(candidates)
         continue
     end
     seed = orb2ds.mesh_transfer(problem, transfer, options);
+    if options.output.plot_initial_guess
+        figure_handle = orb2ds.plot_initial_guess(transfer);
+        figure_handle.Name = sprintf('Assembled initial guess: candidate %d', index);
+        if strcmp(figure_handle.Visible, 'on')
+            drawnow;
+        end
+    end
     if options.output.display
         fprintf('\norb2ds start %d/%d: candidate %d, database row %d\n', ...
             count + 1, options.n_starts, index, candidates(index).orbit_moon.row_id);

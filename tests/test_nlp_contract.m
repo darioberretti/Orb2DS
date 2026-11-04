@@ -104,7 +104,7 @@ problem = testCase.TestData.problem;
 problem.constraints = struct('max_transfer_time_days', 10, 'max_total_time_days', 9);
 nlp = orb2ds.internal.build_nlp(problem, testCase.TestData.seed, testCase.TestData.options);
 verifySize(testCase, nlp.A, [1, nlp.n_variables]);
-verifyEqual(testCase, nlp.b, 9 / nlp.model.time_days);
+verifyEqual(testCase, nlp.b, 1e-9 * 9 / nlp.accuracy.time_days, 'AbsTol', 1e-15);
 minimum = nlp.initial;
 minimum(nlp.duration_indices) = nlp.lower(nlp.duration_indices);
 decoded = orb2ds.internal.decode_nlp(minimum, nlp);

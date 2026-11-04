@@ -1,7 +1,7 @@
 function [velocity, derivative] = target_eci(target, time_days)
 %TARGET_ECI Evaluate the prescribed outgoing excess velocity and time derivative.
 %   Velocity is km/s and its derivative km/s per day. The RTH geometry angle
-%   points Earth-to-Sun; radial points Sun-to-Earth, matching the thesis axes.
+%   points Earth-to-Sun; the radial basis vector points Sun-to-Earth.
 
 velocity = target.vinf_km_s(:);
 derivative = zeros(3, 1);

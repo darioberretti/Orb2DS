@@ -1,5 +1,5 @@
 function [variables, swapped] = regularize_impulses(impulses)
-%REGULARIZE_IMPULSES Invert the thesis quadratic map without its logging/fallbacks.
+%REGULARIZE_IMPULSES Encode normalized impulses in Oshima quadratic variables.
 %   Nx3 normalized impulses become Nx3 regularized variables. Preserve the
 %   alternate chart for a purely negative x impulse and the epsilon zero seed.
 

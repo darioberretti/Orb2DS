@@ -8,8 +8,8 @@ function database = load_orbit_moon_database(filename)
 % OUTPUT:
 %   database  Validated in-memory descriptor and encounter arrays. Physical
 %             units are km, km/s, days and normalized departure phase.
-%             Historical thesis tables require explicit migration, never
-%             relabeling or an automatic conversion here.
+%             Files must satisfy the schema in docs/CONTRACTS.md; this
+%             function validates them without changing units or data fields.
 
 data = load(filename, 'database');
 assert(isfield(data, 'database'), 'orb2ds:Schema', ...

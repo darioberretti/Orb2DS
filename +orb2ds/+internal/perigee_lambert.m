@@ -1,7 +1,7 @@
 function [duration, initial_velocity, final_velocity, success] = perigee_lambert(r1, r2, model, options)
-%PERIGEE_LAMBERT Extract the thesis bracket/bisection search for a tangential arrival.
+%PERIGEE_LAMBERT Find a time of flight giving a tangential Lambert arrival.
 %   Positions are km, returned duration days and velocities km/s. The
-%   historical retrograde Lambert branch is used. Failed searches are
+%   zero-revolution retrograde Lambert branch is used. Failed searches are
 %   explicitly excluded, not returned as tangential arrivals.
 
 radius = norm(r2);
@@ -22,7 +22,7 @@ if abs(g_low) / (norm(final_velocity) * radius) <= options.patching.lambert_tole
     return
 end
 
-% Use the original longer-then-shorter bracket expansion.
+% Search longer durations first, then shorter durations, to bracket tangency.
 bracketed = false;
 for direction = [1, -1]
     step = scale / 2;

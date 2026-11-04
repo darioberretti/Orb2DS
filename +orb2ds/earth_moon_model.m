@@ -6,9 +6,8 @@ function model = earth_moon_model(parameters)
 %
 % DESCRIPTION:
 %   Derive the mass ratio, circular angular rate and normalization from two
-%   gravitational parameters and one primary separation. Defaults preserve
-%   the reference orbit's mass ratio; its old, inconsistent time scales are
-%   deliberately not reused. All declared angular origins refer to local t=0.
+%   gravitational parameters and one primary separation. The default mass
+%   ratio is 0.0121506683. All angular origins refer to local t=0.
 %
 % INPUT:
 %   parameters  Optional structure overriding primary constants below.

@@ -5,7 +5,7 @@ function nlp = build_nlp(problem, seed, options)
 %   nlp = orb2ds.internal.build_nlp(problem, seed, options)
 %
 % DESCRIPTION:
-%   Node states are post-impulse. Each impulse uses the thesis quadratic map.
+%   Node states are post-impulse. Each impulse uses the Oshima quadratic map.
 %   Durations, departure epoch, normalized phase and waiting are represented
 %   only where independent under the supplied initial-event information.
 %   All omitted physical limits remain absent; mesh construction is separate.
@@ -27,6 +27,7 @@ if isfield(nlp.problem, 'database')
 end
 nlp.model = problem.orbit.model;
 nlp.options = options;
+nlp.accuracy = orb2ds.internal.resolve_accuracy(options.accuracy);
 nlp.seed = seed;
 nlp.period_tu = problem.orbit.period_days / nlp.model.time_days;
 nlp.n_nodes = numel(seed.nodes.time_days);
@@ -112,6 +113,10 @@ for name = {'max_transfer_time_days', 'max_total_time_days'}
             'The duration cap is below the mesh time resolution; reduce the mesh or minimum_segment_days.');
     end
 end
+time_scale = 1e-9 * nlp.model.time_days / nlp.accuracy.time_days;
+nlp.A = nlp.A * time_scale;
+nlp.b = nlp.b * time_scale;
+
 earth_margin = 0;
 moon_margin = 0;
 if isfield(constraints, 'min_earth_altitude_km')
@@ -122,4 +127,5 @@ if isfield(constraints, 'min_moon_altitude_km')
 end
 nlp.min_earth = (nlp.model.earth_radius_km + earth_margin) / nlp.model.distance_km;
 nlp.min_moon = (nlp.model.moon_radius_km + moon_margin) / nlp.model.distance_km;
+[nlp.equality_scale, nlp.inequality_scale] = orb2ds.internal.constraint_scales(nlp);
 end

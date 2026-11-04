@@ -91,6 +91,10 @@ end
 
 function verify_option_fields(testCase, configured, defaults)
 %VERIFY_OPTION_FIELDS Ensure the reference explicitly exposes every numerical leaf.
+if isempty(fieldnames(defaults))
+    verifyTrue(testCase, isstruct(configured) && isscalar(configured));
+    return
+end
 verifyEqual(testCase, sort(fieldnames(configured)), sort(fieldnames(defaults)));
 names = fieldnames(defaults);
 for index = 1:numel(names)

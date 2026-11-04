@@ -1,8 +1,8 @@
 function [departure, arrival, success] = solve_lambert(r1, r2, days, gm)
-%SOLVE_LAMBERT Use the pinned FEX zero-revolution historical retrograde branch.
+%SOLVE_LAMBERT Evaluate the bundled FEX zero-revolution retrograde branch.
 %   Positions are km, duration days, GM km^3/s^2, output velocities km/s.
-%   The branch/sign convention is extracted from rpo2ds.solve_lambert and
-%   RPO2DS_solve_perp_lambert_tof. No global search-path change is made.
+%   The signed duration selects the retrograde branch using the z component
+%   of cross(r1,r2). The reference direction is the positive inertial z axis.
 
 normal = cross(r1(:), r2(:));
 orientation = sign(normal(3));

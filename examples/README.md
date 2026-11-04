@@ -1,7 +1,8 @@
 # Examples
 
 Add the library root to MATLAB's path. Each demonstration also resolves that
-root from its own location. Optimization requires Optimization Toolbox.
+root from its own location. fmincon requires Optimization Toolbox; IPOPT requires
+a separately installed CasADi MATLAB interface with its IPOPT plugin.
 
 1. Run `basic_usage.m` for the complete method, physical result inspection and
    separately reconstructed plot.
@@ -38,8 +39,8 @@ remain free; numerical [] is invalid. A model or orbit change requires a matchin
 database rather than relabeling this one. Reconstruction/plotting settings are
 also documented at the end as separate copyable calls, outside the solver cfg.
 
-The Venus target vector comes from the thesis target input. The example's model,
-catalogue and numerical sampling are explicit new calculations. Solver stopping
+The example configuration declares its target vector, model and numerical settings.
+The catalogue embeds its orbit and generation settings. Solver stopping
 status, multiple-shooting feasibility and independently chained closure must be
 read separately; a best validated candidate need not have optimizer convergence
 or be the global optimum. See `../docs/VALIDATION.md` for measured results.
@@ -47,6 +48,14 @@ or be the global optimum. See `../docs/VALIDATION.md` for measured results.
 Nothing saves transfer results or figures automatically. Save `result` or its
 self-contained `solution` explicitly if needed. Dense trajectory samples are
 returned only by `reconstruct_trajectory` and never inserted into a result.
+
+## Physical accuracy
+
+Set `cfg.options.accuracy.position_km`, `velocity_km_s` and `time_days` for the
+general budgets. Optional per-requirement exceptions are applied only when
+`accuracy.use_exceptions=true`, and can only tighten the general values.
+The configuration lists every exception and unit. `result.accuracy` reports
+the resolved values; see [ACCURACY.md](../docs/ACCURACY.md).
 
 ## Creating a database
 
@@ -83,19 +92,25 @@ The numbered editor sections can be executed one at a time:
    the two estimated endpoint burns and the lunar speed mismatch.
 3. `candidate_index` chooses one returned match. Assembly reconstructs its finite
    lunar passage and physical event timeline. No database row is selected directly.
-4. `mesh_transfer` creates the shooting nodes and burn initialization. Change
-   `cfg.options.mesh.max_step_days` in the case for a different maximum spacing.
-   The initial-guess plot preserves patch defects; it is not a feasible transfer
-   claim. `show_initial_guess=false` skips that preview.
-5. `optimize_transfer` moves the supplied nodes, burns and unconstrained timing
-   quantities. It first seeks feasibility with zero objective, then minimizes
-   total delta-v. Removing `problem.database` demonstrates that optimization
-   needs only the orbit, current target/constraints and compact guess.
-6. Reconstruction creates a separate trajectory for the validated solution;
-   the script also prints the optimized timing and chained propagation check.
+   The first plot shows the three assembled physical legs without shooting nodes.
+4. `mesh_transfer` creates nodes and returns a spacing summary. The configuration
+   controls the global maximum step and local refinement from before lunar
+   periapsis through Earth periapsis.
+5. `transcribe_guess` exposes the exact initialization after NLP timing,
+   impulse and bounds handling. Its CR3BP reconstruction is the second plot,
+   with shooting nodes and dashed position defects. Stop here to inspect both
+   guesses without solving.
+6. `optimize_transfer` moves nodes, burns and unconstrained timing quantities,
+   optionally seeking zero-objective
+   feasibility before minimizing delta-v. Removing `problem.database`
+   demonstrates that optimization needs only the current physical problem
+   and compact guess. The explicit preview disables the duplicate automatic one.
+7. Reconstruction creates a separate trajectory for the validated solution or,
+   if validation fails, the final candidate. The plot name and title report its
+   acceptance status. The script also prints failed checks and chained diagnostics.
 
-Candidates are ordered by estimated **Earth-perigee burn**, following the thesis
-matching algorithm. For each Earth leg the matcher chooses the closest compatible
+Candidates are ordered by estimated **Earth-perigee burn**. For each Earth leg
+the matcher chooses the closest compatible
 incoming lunar speed. This ranking is not total optimized cost. Candidate 2 can
 converge better than candidate 1, fail assembly or converge to a different local
 solution. Candidate indices are local to the returned search and can change when
@@ -106,16 +121,21 @@ The explicit script optimizes one candidate even if `n_starts` is larger than 1.
 Use `find_transfer` with `options.n_starts` for automatic multistart and validated
 cost selection. No automatic candidate substitution occurs in the explicit script.
 
+Set `cfg.options.output.plot_initial_guess` and `plot_nlp_guess` independently
+to show or hide the two initial views. Both default to false in the library
+and are enabled in the example. Plot flags are independent of verbosity.
+See [mesh settings and guess inspection](../docs/MESH.md) for the full contract.
+
 ## Command-window output
 
-The two existing display settings have independent responsibilities:
+The two display settings have independent responsibilities:
 
 ```matlab
 cfg.options.output.display = true;   % Library search, stages and physical summary.
-cfg.options.solver.display = 'iter';  % Native fmincon iteration table.
+cfg.options.solver.display = 'iter';  % Selected solver's native iteration table.
 ```
 
-The supplied Venus case now enables both. Generic library defaults remain
+The supplied example enables both. Generic library defaults are
 library summaries on and native solver display off. Choose settings directly:
 
 | Desired library/solver output | `output.display` | `solver.display` |
@@ -126,7 +146,6 @@ library summaries on and native solver display off. Choose settings directly:
 | Summaries and every solver iteration | `true` | `'iter'` |
 | Iterations with detailed stopping information | `true` | `'iter-detailed'` |
 
-These are combinations of existing settings, not named execution modes.
 The script's explicit `disp`/`fprintf` inspections are separate from automatic
 library output and remain visible when library messages are disabled.
 
@@ -138,7 +157,25 @@ Neither replaces the final independent physical residuals in km and km/s.
 The solver's native output can be enabled even with library summaries disabled.
 See MathWorks' [iteration table definitions](https://www.mathworks.com/help/optim/ug/iterative-display.html).
 
-## Thesis-style figures
+## Choosing the optimizer
+
+The complete settings are in `config_example.m`. Keep `solver.name='fmincon'`
+and choose `solver.fmincon.algorithm` for another MATLAB algorithm. To use IPOPT,
+first add your installed CasADi directory to the path in your calling script:
+
+```matlab
+addpath('C:\path\to\casadi');
+[problem, options] = orb2ds.load_case('C:\path\to\my_config.m');
+options.solver.name = 'ipopt';
+options.solver.evaluation = 'matlab'; % Or 'casadi' for symbolic CVODES evaluation.
+result = orb2ds.find_transfer(problem, options);
+```
+
+Native options such as `solver.ipopt.mu_strategy='adaptive'` are optional and
+override common settings. IPOPT's table uses its own feasibility/dual/barrier
+columns. See [solver settings](../docs/SOLVERS.md) for mappings and differences.
+
+## Figure settings
 
 The default plot has black arcs, black shooting-node circles, blue scaled impulse
 arrows, blue/red departure/arrival markers, grid, equal spatial scale and Times

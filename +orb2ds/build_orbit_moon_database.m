@@ -7,9 +7,9 @@ function database = build_orbit_moon_database(orbit, filename, supplied)
 % DESCRIPTION:
 %   Propagate a grid of impulsive departures from a periodic spatial CR3BP
 %   orbit. Retain every inward encounter before the search horizon or a body
-%   impact. This extracts the thesis generator's phase/impulse grid and event
-%   calculation, using the canonical model throughout. Local SOI velocities
-%   and Kepler incoming asymptotes are stored with different definitions.
+%   impact. Use the supplied model for the phase/impulse grid and encounter
+%   events. Local encounter-boundary velocities and Kepler incoming
+%   asymptotes are stored as separate quantities.
 %   A same-name archive is reused only when orbit, grid and integration
 %   settings match. Existing files are never overwritten.
 %
@@ -105,7 +105,7 @@ database.definition = struct('boundary', 'moon_radius_plus_laplace_soi', ...
     'asymptotic_velocity', 'inbound_kepler_asymptote');
 database.generation = generation;
 database.provenance = struct('library_version', '0.1.0-dev', ...
-    'algorithm', 'thesis phase/impulse grid, canonical spatial CR3BP');
+    'algorithm', 'phase/impulse grid, spatial Earth-Moon CR3BP');
 database = orb2ds.internal.check_database(database);
 save(filename, 'database', '-v7.3');
 end

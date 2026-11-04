@@ -9,6 +9,13 @@ old_path = path;
 cleanup = onCleanup(@() path(old_path));
 addpath(root);
 [problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_example.m'));
+% Solver controls are fixed for this regression, independent of user edits
+% to the copyable example's selected optimizer, tolerances and plot flags.
+defaults = orb2ds.defaults.numerical_options();
+options.solver = defaults.solver;
+options.integration = defaults.integration;
+options.mesh = defaults.mesh;
+options.output = defaults.output;
 options.n_starts = 2;
 options.solver.max_iterations = 0;
 options.output.display = false;

@@ -42,7 +42,7 @@ for index = 1:numel(names)
     end
     if strcmp(name, 'final_time_days')
         error('orb2ds:Unsupported', ...
-            'Exact and windowed final epochs require the future final-time algorithm.');
+            'Nonempty final_time_days is unsupported; use local epochs and leave this field empty.');
     elseif strcmp(name, 'impulse_nodes')
         constraints.(name) = validatestring(value, {'all', 'endpoints'});
     else

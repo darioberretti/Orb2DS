@@ -18,7 +18,8 @@ function cfg = config_example()
 %
 % NOTES:
 %   Physical constraints set to [] or omitted remain free. Omitted numerical
-%   fields use orb2ds.defaults.numerical_options(); numerical [] is invalid.
+%   fields use orb2ds.defaults.numerical_options(). Optional accuracy
+%   exceptions accept [] to inherit their general budget.
 %   Explicit zero is a value, not an instruction to use a default.
 
 %% Model and departure orbit
@@ -100,18 +101,56 @@ cfg.constraints.impulse_nodes = 'all';        % 'all' or 'endpoints'; default 'a
 % flight=35, wait=10 still requires wait+flight<=40, not <=45. Numerical
 % search horizons below do not become final mission-duration constraints.
 
-% RESERVED, unsupported: leave empty. A scalar or [earliest,latest] final
-% epoch requires the future final-time algorithm and currently raises an error.
+% Must be empty or omitted: nonempty final-epoch constraints are unsupported.
 cfg.constraints.final_time_days = [];
-% Absolute MJD2000 epochs and automatic ephemeris geometry are not supported yet.
+% Epochs use local days; MJD2000 and automatic ephemeris geometry are unsupported.
 
 %% Integration and shooting mesh
 
-cfg.options.integration.relative_tolerance = 1e-13; % ode113 relative tolerance.
-cfg.options.integration.absolute_tolerance = 1e-14; % Normalized-state absolute tolerance.
-cfg.options.mesh.max_step_days = 0.5;               % Maximum initial node spacing [days].
-% Mesh construction retains event anchors. optimize_transfer never remeshes
-% a supplied guess; change mesh settings before calling mesh_transfer.
+% Integration tolerances control the numerical propagation, not node spacing.
+% States are integrated in normalized distance and velocity units; these are
+% not tolerances in km or km/s. Both values must be positive finite scalars.
+% ode113 uses them for MATLAB propagation; CVODES uses them in the symbolic
+% solver unless overridden by options.solver.cvodes below.
+cfg.options.integration.relative_tolerance = 1e-12; % Relative integration tolerance [-].
+cfg.options.integration.absolute_tolerance = 1e-12; % Absolute normalized-state tolerance [-].
+
+% mesh_transfer chooses the node count from a maximum time spacing [days].
+% The count also depends on arc lengths and required event/boundary nodes.
+cfg.options.mesh.max_step_days = 0.5;              % Positive finite maximum initial step.
+
+% One refinement interval uses a smaller maximum step. BOTH from and to
+% accept any of these named events in the assembled transfer:
+%   'departure'       : departure from the supplied periodic orbit.
+%   'moon_entry'      : inward crossing of model.encounter_radius_km from the Moon.
+%   'moon_periapsis'  : lunar closest-approach anchor of the assembled guess.
+%   'moon_exit'       : outward crossing of the same lunar encounter boundary.
+%   'earth_periapsis' : final Earth-perigee arrival.
+% These are event names, not node indices. Numeric node-index anchors and
+% arbitrary interior-node selection are not supported for refinement.
+cfg.options.mesh.refinement.from = 'moon_periapsis'; % Start anchor; choose an event above.
+cfg.options.mesh.refinement.from_offset_days = -1;  % Signed offset from the start anchor [days].
+cfg.options.mesh.refinement.to = 'earth_periapsis';  % End anchor; choose an event above.
+cfg.options.mesh.refinement.factor = 3;             % Finite factor >=1; local step = 0.5/3 days.
+
+% start = time(from) + from_offset_days; end = time(to).
+% An offset of -1 starts one day BEFORE from; 0 starts AT from; +1 starts
+% one day AFTER from. The end event has no offset setting.
+% factor=1 disables refinement; factor=3 divides the maximum step by three.
+% Generic library defaults: maximum step 0.5 days and factor 1.
+% Examples (uncomment to replace the start/end settings above):
+% cfg.options.mesh.refinement.from = 'moon_entry';
+% cfg.options.mesh.refinement.from_offset_days = 0; % Start exactly at lunar entry.
+% cfg.options.mesh.refinement.to = 'moon_exit';     % Refine only the lunar passage.
+% cfg.options.mesh.refinement.factor = 1;          % Use the global spacing everywhere.
+%
+% An active interval must be nonempty and entirely inside the transfer.
+% Out-of-range or reversed intervals raise an error; offsets are not clipped.
+% Departure, lunar entry/periapsis/exit, Earth arrival and active refinement
+% boundaries are retained exactly. Their insertion can make steps smaller
+% than the requested maximum. Steps below solver.minimum_segment_days fail.
+% optimize_transfer preserves the supplied node count and order. It can
+% change segment durations, so max_step_days bounds only the INITIAL mesh.
 
 %% Leg matching and patched-guess search
 
@@ -127,42 +166,103 @@ cfg.options.patching.lambert_iterations = 60;    % Maximum bisection iterations.
 cfg.options.patching.max_lambert_days = 20;      % Earth-leg search horizon [days].
 cfg.options.patching.flyby_horizon_days = 5;     % Each finite-flyby integration horizon.
 % Ranking uses estimated Earth-perigee burn, not final optimized total delta-v.
-% The three reduced sampling/budget values above preserve the small example.
+% n_perigee, n_moon and max_altitude_trials control the search cost.
 
-%% Native fmincon optimization
+%% Optimization solver and evaluation route
 
-cfg.options.solver.run_feasibility = true;          % Zero-objective feasibility stage first.
+cfg.options.solver.name = 'fmincon';                % 'fmincon' or 'ipopt'.
+cfg.options.solver.evaluation = 'matlab';           % 'matlab' or 'casadi'.
+% Supported pairs: fmincon/matlab, ipopt/matlab, ipopt/casadi. Both IPOPT
+% routes require CasADi with its IPOPT plugin on the MATLAB path. Install it
+% separately and addpath its root in your script, before calling the solver.
+% 'matlab': ode113 + analytic state-transition/complex-step Jacobians.
+% 'casadi': symbolic equations + CVODES sensitivities, only with IPOPT.
+
+cfg.options.solver.run_feasibility = false;          % Zero-objective feasibility stage first.
 cfg.options.solver.max_iterations_feasibility = 200;% Stage-1 iteration budget.
 cfg.options.solver.max_iterations = 2000;           % Delta-v stage iteration budget.
-cfg.options.solver.max_function_evaluations = 1000000; % Per-stage evaluation budget.
+cfg.options.solver.max_function_evaluations = 1000000; % fmincon-only evaluation budget.
 cfg.options.solver.minimum_segment_days = 1e-6;     % Positive numerical duration resolution.
-cfg.options.solver.constraint_tolerance = 1e-6;    % Normalized NLP feasibility tolerance.
-cfg.options.solver.optimality_tolerance = 1e-2;     % First-order stopping tolerance.
-cfg.options.solver.step_tolerance = 1e-12;          % Solver step stopping tolerance.
+cfg.options.solver.constraint_tolerance = 1e-10;    % Scaled residual stopping threshold; default 1e-12.
+cfg.options.solver.optimality_tolerance = 1e-2;     % fmincon optimality / IPOPT scaled NLP tol.
+cfg.options.solver.step_tolerance = 1e-12;          % fmincon only; no IPOPT equivalent.
 cfg.options.solver.display = 'iter';               % 'off', 'final', 'iter', 'iter-detailed'.
-% The algorithm is SQP; no alternate solver/objective is currently configured.
+cfg.options.solver.fmincon.algorithm = 'sqp';       % Also interior-point, active-set, sqp-legacy.
+cfg.options.solver.fmincon.options = struct();      % Native optimoptions names/values.
+cfg.options.solver.ipopt = struct();                % Native IPOPT names/values.
+cfg.options.solver.casadi = struct();               % Native nlpsol options, excluding ipopt.
+cfg.options.solver.cvodes = struct();               % Native CVODES integrator options.
+% Examples (uncomment as needed); native values override common settings.
+% cfg.options.solver.fmincon.options.MaxIterations = 400;
+% cfg.options.solver.ipopt.mu_strategy = 'adaptive';
+% cfg.options.solver.ipopt.max_iter = 400;          % Overrides BOTH stage budgets.
+% cfg.options.solver.ipopt.print_level = 5;         % Overrides common display mapping.
+% cfg.options.solver.casadi.print_time = true;
+% cfg.options.solver.cvodes.max_num_steps = 200000;
+% Inactive native blocks are retained but not applied. Only plain data is
+% accepted: callbacks/objects remain internal. Native typos fail at the solver.
+% IPOPT defaults: limited-memory Hessian, acceptable_iter=0, no bound relaxation,
+% no implicit ipopt.opt file. Exact Hessians require the symbolic route.
+% display: off -> IPOPT level 0; final -> level 0 + final status;
+% iter -> level 5; iter-detailed -> level 7. output.display is independent.
+% Common tolerances have different solver meanings; validation is unchanged.
+% A scaled residual of 1e-9 represents one physical error budget. The default
+% constraint_tolerance=1e-12 targets 0.001 of each budget. This advanced
+% numerical threshold is separate from the physical accuracy settings below.
+% Native overrides can change stopping behavior, but never acceptance budgets.
+% CVODES overrides affect symbolic optimization only. Independent physical
+% validation always uses ode113 with options.integration tolerances.
 % Stage 1 displays objective zero. Stage 2 displays normalized total delta-v;
 % multiply f(x) by model.velocity_km_s*1000 for m/s. The header prints this factor.
 % A time cap incompatible with node count/minimum_segment_days is an error;
 % choose a coarser mesh or smaller numerical duration resolution explicitly.
 
-%% Independent physical validation
+%% Physical accuracy and optional tighter exceptions
 
-cfg.options.validation.position_tolerance_km = 0.001;      % Shooting position defects.
-cfg.options.validation.velocity_tolerance_km_s = 1e-6;    % Velocity/radial-event residuals.
-cfg.options.validation.target_tolerance_km_s = 1e-5;      % Achieved Earth excess velocity.
-cfg.options.validation.altitude_tolerance_km = 0.001;     % Body-clearance tolerance.
-cfg.options.validation.time_tolerance_days = 1e-7;        % Timing equalities/caps.
-cfg.options.validation.orbit_closure_position_km = 0.01;  % Periodic-orbit position closure.
-cfg.options.validation.orbit_closure_velocity_km_s = 1e-7;% Periodic-orbit velocity closure.
-% Local shooting acceptance and chained propagation have separate flags.
-% A solver success code alone does not establish a physically valid solution.
+% These budgets apply to vector-error norms, not separate Cartesian axes.
+% The solver residuals and independent validator use the same resolved values.
+% All physical tolerances must be positive finite scalars.
+cfg.options.accuracy.position_km = 1e-3;    % 1 m; chained endpoint position budget.
+cfg.options.accuracy.velocity_km_s = 1e-6;  % 1 mm/s; chained endpoint velocity budget.
+cfg.options.accuracy.time_days = 1e-7;     % Timing equalities and duration caps [days].
+cfg.options.accuracy.use_exceptions = false; % true applies the optional values below.
+
+% [] inherits the general value. When enabled, an exception applies
+% min(general,specific): it can only tighten a budget. Disabling exceptions
+% preserves their settings but applies only the general values. Both enabled
+% and disabled nonempty values must have the indicated units and valid types.
+cfg.options.accuracy.dynamics.position_km = [];     % Per-segment position defect [km].
+cfg.options.accuracy.dynamics.velocity_km_s = [];   % Per-segment velocity defect [km/s].
+cfg.options.accuracy.departure.position_km = [];    % Pre-burn departure-to-orbit error [km].
+cfg.options.accuracy.departure.velocity_km_s = [];  % Pre-burn departure-to-orbit error [km/s].
+cfg.options.accuracy.target.velocity_km_s = [];     % Achieved outgoing Earth vector error [km/s].
+cfg.options.accuracy.periapsis.radial_velocity_km_s = []; % Earth/Moon radial speed [km/s].
+cfg.options.accuracy.clearance.altitude_km = [];    % Numerical altitude shortfall [km].
+% Example: set use_exceptions=true and dynamics.position_km=1e-4 for 10 cm
+% local position continuity while retaining the global 1 m endpoint budget.
+% Clearance accuracy is numerical tolerance, not the minimum mission altitude.
+% The time budget covers phase/epoch couplings and waiting/flight/total caps.
+% result.accuracy lists all effective budgets. result.solution requires BOTH
+% local checks and chained propagation to pass; otherwise inspect candidate.
+
+%% Supplied-orbit validation
+
+% These test the input orbit over one period; transfer optimization cannot
+% repair its supplied reference state or period.
+cfg.options.validation.orbit_closure_position_km = 0.01;  % One-period position closure [km].
+cfg.options.validation.orbit_closure_velocity_km_s = 1e-7;% One-period velocity closure [km/s].
 
 %% Optional multistart and automatic messages
 
 cfg.options.n_starts = 1;                       % find_transfer only; deterministic matches.
 cfg.options.output.display = true;             % Search, stages and physical summaries.
 cfg.options.output.keep_attempt_solutions = false; % Keep compact per-start records too.
+cfg.options.output.plot_initial_guess = true;  % Assembled physical legs, without shooting nodes.
+cfg.options.output.plot_nlp_guess = true;      % Exact NLP initial vector, CR3BP arcs and gaps.
+% Both plot flags default to false in the library and are independent of
+% output.display/solver.display. find_transfer plots each attempted start.
+% build_initial_guess honors the first flag; optimize_transfer honors the
+% second. mesh_transfer and transcribe_guess themselves create no figures.
 % solver.display is independent of output.display. Disable both for a silent
 % library/solver. Explicit disp/fprintf calls in your script are unaffected.
 % For automatic multistart n_candidates>=n_starts. The explicit step_by_step
@@ -196,7 +296,14 @@ cfg.options.database.horizon_days = 50;              % Forward horizon [days]; d
 %     'view', [0, 90], ...                         % XY; [-37.5,30] gives a 3D view.
 %     'show_nodes', true, ...                      % Shooting-node circles.
 %     'show_impulses', true, ...                   % Uniformly scaled burn arrows.
-%     'impulse_scale', 0.38));                     % Longest arrow / trajectory span.
+%     'impulse_scale', 0.38, ...                   % Longest arrow / trajectory span.
+%     'show_defects', true));                     % Dashed propagated-end -> node gaps.
+% assembled_figure = orb2ds.plot_initial_guess(transfer, [], ...
+%     struct('samples_per_arc', 200, 'frame', 'rotating'));
+% nlp_guess = orb2ds.transcribe_guess(problem, seed, options);
+% nlp_trajectory = orb2ds.reconstruct_trajectory(nlp_guess);
+% nlp_figure = orb2ds.plot_trajectory(nlp_trajectory, struct('show_defects', true));
+% These explicit calls allow custom views without changing solver inputs.
 % Arrows keep relative magnitudes/directions; lengths are not displacements.
 % Zero impulse_scale hides arrows. No call saves results/figures implicitly.
 end

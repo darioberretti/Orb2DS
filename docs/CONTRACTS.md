@@ -16,8 +16,8 @@ expressed in these axes explicitly.
 A configuration `.m` function returns one plain `cfg` structure.
 
 `examples/config_example.m` is the complete annotated template. Copy it to any
-directory; rename its function when renaming the file. No `cases` directory is
-required. Every supported numerical leaf is explicit there; remove a leaf to
+directory; rename its function when renaming the file. Every supported
+numerical leaf is explicit there; remove a leaf to
 inherit the library default. Exclusive orbit/target alternatives are commented.
 
 Allowed blocks:
@@ -40,12 +40,13 @@ case without starting propagation, database generation or optimization.
 The same prepared structures may be constructed directly. `find_transfer`
 requires a loaded database; `optimize_transfer` does not read one. Numerical
 defaults and validation are shared by preparation and direct stage calls.
-Unknown fields are errors. Omit numerical fields for their defaults; empty
-numerical leaves are rejected. Empty physical constraints mean absent/free.
+Unknown library fields are errors; explicit native solver/integrator blocks
+admit options validated by their respective libraries. Omit numerical fields for their defaults; empty
+numerical leaves are rejected except optional accuracy exceptions, where [] inherits the general budget. Empty physical constraints mean absent/free.
 
 `options.output.display` controls automatic library search/stage/physical-summary
-messages. `options.solver.display` independently passes `'off'`, `'final'`,
-`'iter'` or `'iter-detailed'` to fmincon. Generic defaults are `true` and `'off'`;
+messages. `options.solver.display` independently selects `'off'`, `'final'`,
+`'iter'` or `'iter-detailed'` for the selected solver. Generic defaults are `true` and `'off'`;
 the example case explicitly enables `'iter'`. These settings affect presentation
 only. Stage 1 has zero objective; stage 2 displays normalized total delta-v,
 converted to m/s by `model.velocity_km_s*1000`. Native normalized feasibility
@@ -61,18 +62,17 @@ and reference phase are not inferred from a database or automatically corrected.
 
 Primary model parameters are `gm_earth_km3_s2`, `gm_moon_km3_s2`, `distance_km`,
 `earth_radius_km`, `moon_radius_km`, and `moon_angle_ref_rad`. The default mass
-ratio equals the source orbit's 0.0121506683. One circular angular rate follows
-from the total GM and separation. The SOI-entry boundary follows the recovered
-producer convention: lunar radius plus the Laplace SOI radius.
+ratio is 0.0121506683. One circular angular rate follows from the total GM and
+separation. The encounter boundary radius is the lunar radius plus the Laplace
+sphere-of-influence radius, measured from the Moon.
 
 Local `t=0` identifies the supplied seed's reference event. Normalized phase
 `s=0` identifies `state_ref`; phase evolves through flow over `s*period_days`.
 Phase 1 is accepted as phase 0. Declaring those coordinates never supplies
 `initial_time_days=0` or `initial_phase=0` as implicit constraints.
 
-MJD2000 input and automatic astronomical Earth-Sun/Earth-Moon geometry are a
-future extension. Exact or windowed final epochs are also future work and are
-rejected explicitly in this implementation.
+Epochs use local days. MJD2000 input, automatic astronomical Earth-Sun/Earth-Moon
+geometry and nonempty final-epoch requests are unsupported.
 
 ## Target and physical constraints
 
@@ -95,7 +95,7 @@ to that snapshot. Ephemeris generation and solar gravity are not added.
 | `min_earth_altitude_km` | Earth clearance above the model radius. |
 | `min_moon_altitude_km` | Lunar clearance above the model radius. |
 | `impulse_nodes` | `all` (default) or `endpoints`. |
-| `final_time_days` | Planned scalar/window input; currently rejected as unsupported. |
+| `final_time_days` | Must be empty or omitted; nonempty values are unsupported. |
 
 Omitted quantities stay free. Body impacts are always excluded. Caps intersect;
 none silently overrides another. If neither initial epoch nor phase is supplied,
@@ -111,7 +111,7 @@ caps are accepted and obvious redundancies are reported.
 or reuses a matching completed archive. It never overwrites an existing file.
 Reusing a filename requires matching orbit, grid and integration settings.
 `load_orbit_moon_database` reads the versioned variable `database`; it does not
-guess metadata or convert a historical table implicitly.
+infer missing metadata or convert incompatible data.
 
 A database has `schema_version`, `orbit`, `encounters`, `definition`,
 `generation`, `provenance`. Encounter arrays are:
@@ -141,6 +141,11 @@ SOI entry/perilune/exit and Earth-perigee epochs, impulses and provenance.
 An unreconstructible finite lunar passage returns empty. `mesh_transfer` samples
 those recipes, retains event anchors and emits the node record below. Patch
 defects remain visible. Optimization never silently rediscretizes that record.
+`mesh.max_step_days` bounds initial spacing. Optional `mesh.refinement`
+selects an event interval using `from`, `from_offset_days`, `to` and `factor`;
+factor 1 disables refinement. Exact physical anchors and interval boundaries
+are retained. `mesh_transfer` also returns a compact summary stored in
+`seed.provenance.mesh`. See [MESH.md](MESH.md) for interval validation and plots.
 
 ## Compact physical node record
 
@@ -165,24 +170,35 @@ conventions and structural validity must match the current problem.
 collapsed shooting epochs (default 1e-6 days). It is not a mission-duration
 cap. A requested cap incompatible with the selected node count/resolution is
 a numerical-configuration error. Reduce the resolution or choose a coarser mesh.
+Mesh spacing limits apply to the initial guess, not optimized segment durations.
 
 The runtime NLP holds normalized states, Oshima variables, independent timing
 quantities, bounds and callbacks. It is not persisted. Both solver stages use
 the same constraints, with zero objective first and total delta-v second.
+`solver.name` selects fmincon or IPOPT; `solver.evaluation` selects MATLAB
+functions or a CasADi/CVODES graph (IPOPT only). See [SOLVERS.md](SOLVERS.md)
+for native-option precedence and the explicit tolerance mappings.
+`transcribe_guess(problem, seed, options)` exposes the corresponding compact
+physical initialization, without solving or requiring a solver dependency.
 
 ## Result and reconstruction
 
-`result` contains status, `solution`, `candidate`, `validation`, `seed`, compact
+`result` contains status, `solution`, `candidate`, `validation`, `accuracy`, `seed`, compact
 `solver` diagnostics, attempt summaries, active constraints, effective inputs
 (without the database), and provenance. `find_transfer` also reports search
 diagnostics. Distinguish `no_seed_found`, `no_validated_solution`,
 `feasible_converged` and `feasible_without_optimization_convergence`.
 
-`solution` is the lowest-cost validated record among checked stage candidates
+`solution` is the lowest-cost record passing local and chained physical checks among stage candidates
 and starts. When no record is accepted, `candidate` retains the failed checked
 record if one exists. Solver exit flags and independent physical acceptance
 are separate. Best-feasible points reported by fmincon are checked as well;
 no optimizer vectors or callbacks are copied into result diagnostics.
+Each stage records its solver/evaluation route, effective native options,
+iterations and stopping information. IPOPT's native `return_status` is retained;
+`Solved_To_Acceptable_Level` is distinguished from `Solve_Succeeded` and does
+not set the shared optimization-converged flag. A validated point from an
+iteration-limited or acceptable-level solve can still be returned as a solution.
 
 `reconstruct_trajectory(solution, settings)` returns a separate transient
 trajectory, segment by segment, including endpoint defects and distinct
@@ -190,14 +206,25 @@ pre/post states. `plot_trajectory(trajectory, settings)` plots it without saving
 Its default `frame='rotating'` displays barycentric DU; `frame='eci'` transforms
 each sample at its epoch to Earth-centered km. Default `view=[0,90]` shows XY
 without dropping Z. `show_nodes=true`, `show_impulses=true` and
-`impulse_scale=0.38` reproduce the thesis overlays. Arrows are uniformly scaled
+`impulse_scale=0.38` control the displayed nodes and arrows. Arrows are uniformly scaled
 to the trajectory extent; their relative strengths and three-dimensional
 directions are preserved. They are not physical position increments. See the
 examples guide for all plot controls and command-window settings.
+`show_defects=true` draws position gaps between propagated endpoints and
+receiving nodes. `plot_initial_guess(transfer, seed, settings)` instead samples
+the original physical arc recipes in distinct colors, with optional mesh
+overlay and a refinement-start marker. Automatic initial previews are enabled
+independently by `output.plot_initial_guess` and `output.plot_nlp_guess`;
+neither stores trajectories or figure handles inside results. Automatic
+assembled previews show physical legs without a mesh overlay. The basic and
+step-by-step examples plot a returned failed candidate as well, labeling it
+as unvalidated without moving it into `result.solution`.
 No function saves transfer results automatically. Saving `result.solution`
 alone retains everything needed to reconstruct it without the database.
 
 Sampled trajectories never appear inside results, including seeds, failed
 candidates and multistart attempts. Optional `output.keep_attempt_solutions`
 retains compact records only. Independent chained propagation is reported
-separately from multiple-shooting feasibility; see VALIDATION.md.
+alongside `validation.local_is_feasible`. Overall `validation.is_feasible`
+requires both; see [VALIDATION.md](VALIDATION.md). `result.accuracy` lists resolved
+physical budgets; [ACCURACY.md](ACCURACY.md) defines exceptions and residual scaling.

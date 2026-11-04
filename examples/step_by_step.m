@@ -2,15 +2,15 @@ clc; close all; clear;
 % Inspect every scientific stage before running the optimizer. Execute the
 % sections separately in the MATLAB editor, or run the whole script.
 % Edit physical inputs, search settings and verbosity in the case function;
-% edit candidate selection and visualization below. Requires Optimization
-% Toolbox. No results or figures are saved automatically.
+% edit candidate selection and visualization below. fmincon requires
+% Optimization Toolbox; for IPOPT, first add your CasADi installation to the
+% path. No results or figures are saved automatically.
 
 library_root = fileparts(fileparts(mfilename('fullpath')));
 case_file = fullfile(library_root, 'examples', 'config_example.m');
 candidate_index = 1;  % Rank in the returned matches, not a database row.
-show_initial_guess = true;
 plot_settings = struct('frame', 'rotating', 'view', [0, 90], ...
-    'show_nodes', true, 'show_impulses', true, 'impulse_scale', 0.38);
+    'show_nodes', true, 'show_impulses', true, 'impulse_scale', 0.38, 'show_defects', true);
 addpath(library_root);
 
 %% 1. Prepare physical inputs and resolve numerical defaults.
@@ -37,28 +37,50 @@ fprintf('Selected candidate %d, database row %d\n', ...
 transfer = orb2ds.assemble_transfer(problem, candidates(candidate_index), options);
 assert(~isempty(transfer), 'This candidate has no assembled finite lunar passage.');
 disp(transfer.events);
+if options.output.plot_initial_guess
+    orb2ds.plot_initial_guess(transfer, [], plot_settings);
+end
 
-%% 4. Choose shooting nodes and inspect the initial guess.
-seed = orb2ds.mesh_transfer(problem, transfer, options);
+%% 4. Discretize the assembled transfer for multiple shooting.
+[seed, mesh_summary] = orb2ds.mesh_transfer(problem, transfer, options);
+disp(mesh_summary);
 fprintf('Initial guess: %d nodes, delta-v %.6f m/s, flight %.6f days\n', ...
     numel(seed.nodes.time_days), 1000 * sum(vecnorm(seed.nodes.delta_v_km_s, 2, 2)), ...
     seed.timing.transfer_days);
-if show_initial_guess
-    guess_trajectory = orb2ds.reconstruct_trajectory(seed);
-    guess_figure = orb2ds.plot_trajectory(guess_trajectory, plot_settings);
-    guess_figure.Name = 'Initial multiple-shooting guess';
+
+%% 5. Inspect the exact NLP initialization without running a solver.
+nlp_guess = orb2ds.transcribe_guess(problem, seed, options);
+if options.output.plot_nlp_guess
+    nlp_trajectory = orb2ds.reconstruct_trajectory(nlp_guess);
+    nlp_figure = orb2ds.plot_trajectory(nlp_trajectory, plot_settings);
+    nlp_figure.Name = 'NLP-transcribed initial guess';
+    if strcmp(nlp_figure.Visible, 'on')
+        drawnow;
+    end
 end
 
-%% 5. Optimize the supplied mesh; the database is no longer needed.
+%% 6. Optimize the supplied mesh; the database is no longer needed.
+% The explicit preview above replaces optimize_transfer's automatic preview.
+solve_options = options;
+solve_options.output.plot_nlp_guess = false;
 problem = rmfield(problem, 'database');
-result = orb2ds.optimize_transfer(problem, seed, options);
+result = orb2ds.optimize_transfer(problem, seed, solve_options);
 disp(result.status);
 
-%% 6. Reconstruct a validated solution independently of the compact result.
-if ~isempty(result.solution)
-    disp(result.solution.timing);
+%% 7. Reconstruct the final solution or unvalidated optimization candidate.
+final_record = result.solution;
+plot_label = 'Validated optimized transfer';
+if isempty(final_record)
+    final_record = result.candidate;
+    plot_label = 'Unvalidated optimization candidate';
+end
+if ~isempty(final_record)
+    disp(final_record.timing);
+    disp(result.validation.checks);
     disp(result.validation.chained);
-    trajectory = orb2ds.reconstruct_trajectory(result.solution);
+    trajectory = orb2ds.reconstruct_trajectory(final_record);
     solution_figure = orb2ds.plot_trajectory(trajectory, plot_settings);
-    solution_figure.Name = 'Validated optimized transfer';
+    solution_figure.Name = plot_label;
+    title(solution_figure.CurrentAxes, {plot_label, solution_figure.CurrentAxes.Title.String}, ...
+        'Interpreter', 'latex');
 end
