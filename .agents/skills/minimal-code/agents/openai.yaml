@@ -1,0 +1,4 @@
+interface:
+  display_name: "Minimal Code"
+  short_description: "Write correct, concise, readable code"
+  default_prompt: "Use $minimal-code to implement this with the smallest clear solution."

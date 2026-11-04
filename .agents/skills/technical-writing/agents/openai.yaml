@@ -1,0 +1,7 @@
+interface:
+  display_name: "Technical Writing"
+  short_description: "Natural, precise academic and technical prose"
+  default_prompt: "Use $technical-writing to draft or revise this technical prose without changing its meaning."
+
+policy:
+  allow_implicit_invocation: true
