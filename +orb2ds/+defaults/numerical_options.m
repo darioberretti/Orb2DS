@@ -9,13 +9,9 @@ function options = numerical_options()
 
 options.integration = struct('relative_tolerance', 1e-13, ...
     'absolute_tolerance', 1e-14);
-options.accuracy = struct('position_km', 1e-3, 'velocity_km_s', 1e-6, ...
-    'time_days', 1e-7, 'use_exceptions', false);
-options.accuracy.dynamics = struct('position_km', [], 'velocity_km_s', []);
-options.accuracy.departure = struct('position_km', [], 'velocity_km_s', []);
-options.accuracy.target = struct('velocity_km_s', []);
-options.accuracy.periapsis = struct('radial_velocity_km_s', []);
-options.accuracy.clearance = struct('altitude_km', []);
+options.validation = struct('position_km', 1e-3, 'velocity_km_s', 1e-6, ...
+    'time_days', 1e-7, 'orbit_closure_position_km', 0.01, ...
+    'orbit_closure_velocity_km_s', 1e-7);
 options.mesh = struct('max_step_days', 0.5);
 options.mesh.refinement = struct('from', 'moon_periapsis', ...
     'from_offset_days', -1, 'to', 'earth_periapsis', 'factor', 1);
@@ -31,12 +27,16 @@ options.solver = struct('run_feasibility', true, 'max_iterations_feasibility', 2
     'step_tolerance', 1e-12, 'display', 'off');
 options.solver.name = 'fmincon';
 options.solver.evaluation = 'matlab';
+options.solver.constraint_tolerances = struct('time_days', []);
+options.solver.constraint_tolerances.dynamics = struct('position_km', [], 'velocity_km_s', []);
+options.solver.constraint_tolerances.departure = struct('position_km', [], 'velocity_km_s', []);
+options.solver.constraint_tolerances.target = struct('velocity_km_s', []);
+options.solver.constraint_tolerances.periapsis = struct('radial_velocity_km_s', []);
+options.solver.constraint_tolerances.clearance = struct('altitude_km', []);
 options.solver.fmincon = struct('algorithm', 'sqp', 'options', struct());
 options.solver.ipopt = struct();
 options.solver.casadi = struct();
 options.solver.cvodes = struct();
-options.validation = struct('orbit_closure_position_km', 0.01, ...
-    'orbit_closure_velocity_km_s', 1e-7);
 options.database = struct('phases', (0:49) / 50, ...
     'impulses_m_s', linspace(0, 50, 10), ...
     'azimuths_rad', (0:99) * 2 * pi / 100, 'elevations_rad', 0, ...

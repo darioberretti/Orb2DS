@@ -2,8 +2,9 @@
 
 Read `result.status`, solver termination, `result.validation.local_is_feasible`
 and `result.validation.chained` together. `result.solution` requires both local
-and continuously chained physical acceptance. `result.accuracy` reports the
-physical budgets actually applied.
+and continuously chained physical acceptance. `result.validation.tolerances`
+reports the physical thresholds applied by the validator;
+`result.constraint_tolerances` reports the separate solver residual scales.
 
 ## Run the tests
 
@@ -19,8 +20,9 @@ assert(~any([checks.Failed]));
 Tests cover model scales, orbit closure, frames, analytic sensitivities, impulse
 maps, initial phase/epoch cases, timing caps, database reuse, matching/assembly,
 mesh refinement, solver adapters, reconstruction and plotting objects.
-Accuracy tests check exception precedence, vector norms, actual outgoing-vector
-residuals, nonhyperbolic trials, shared derivatives and chained acceptance.
+Tolerance tests check inheritance, independence of solver and validation
+settings, vector norms, actual outgoing-vector residuals, nonhyperbolic trials,
+scaled derivatives and chained acceptance.
 Add CasADi to the path for its tests; otherwise those tests report a skip.
 fmincon tests need Optimization Toolbox. Raster export is outside this suite.
 
@@ -31,9 +33,11 @@ compares departure with the supplied orbit and recomputes the achieved Earth
 excess velocity. It locates interior radial extrema for body clearance, checks
 periapsis speeds/accelerations, timing caps and impulse locations.
 
-General budgets and optional tighter exceptions are under `options.accuracy`.
+Physical acceptance tolerances are under `options.validation` and are always
+active. Optional tighter solver settings are under
+`options.solver.constraint_tolerances` and do not change validation thresholds.
 Vector errors use Euclidean norms. [ACCURACY.md](ACCURACY.md) lists every setting,
-unit and precedence rule.
+unit and inheritance rule.
 
 `options.validation.orbit_closure_position_km` and `orbit_closure_velocity_km_s`
 check one-period input-orbit closure, with defaults 0.01 km and 1e-7 km/s.
@@ -43,8 +47,8 @@ The transfer optimizer does not adjust the input reference state or period.
 
 Starting at the first post-impulse state, the validator propagates through all
 segments and applies subsequent impulses without resetting to stored nodes.
-It checks endpoint position/velocity against the general budgets and recomputes
-clearance and outgoing-vector error using their resolved budgets.
+It checks endpoint position/velocity, clearance and outgoing-vector error
+against `options.validation`, independently of solver constraint tolerances.
 
 `local_is_feasible` reports junction/boundary checks. `chained.is_feasible`
 requires those plus chained closure, target and clearance checks. Overall
@@ -54,9 +58,10 @@ The examples plot it with an explicit unvalidated label.
 
 ## Numerical interpretation
 
-Solver residuals and Jacobians use the same physical budgets as the validator.
-The numerical stopping threshold, objective optimality and integration accuracy
-have distinct meanings; see [SOLVERS.md](SOLVERS.md) and
+Solver residuals and Jacobians use resolved solver constraint tolerances, which
+inherit validation tolerances unless explicitly tightened. The numerical
+stopping threshold, objective optimality and integration accuracy have distinct
+meanings; see [SOLVERS.md](SOLVERS.md) and
 [integration settings](MESH.md#integration-accuracy).
 
 Equal tolerance numbers in CVODES and ode113 do not guarantee equal endpoint

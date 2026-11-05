@@ -1,7 +1,7 @@
 function effective = merge_options(defaults, supplied, location)
 %MERGE_OPTIONS Merge known leaves recursively without treating zero as absent.
 %   Unknown fields and malformed blocks are input errors. Empty numerical
-%   leaves are rejected unless their default is empty (optional exceptions).
+%   leaves are rejected unless their default is empty (optional solver tolerances).
 
 assert(isstruct(supplied) && isscalar(supplied), 'orb2ds:Options', ...
     '%s must be a scalar structure.', location);

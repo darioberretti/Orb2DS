@@ -10,8 +10,8 @@ function validation = validate_solution(solution, problem, supplied)
 %   asymptote, and check timing/orbit conditions. Also chain all burns from
 %   the first node without resets and report its accumulated endpoint error.
 %   Acceptance requires local checks and continuously chained propagation
-%   to satisfy the same resolved physical accuracy requirements. Local and
-%   chained flags identify accumulated numerical error independently.
+%   to satisfy options.validation tolerances, independently of the solver's
+%   constraint tolerances. Local and chained flags report feasibility separately.
 %
 % INPUT:
 %   solution  Canonical compact solution or candidate; no database required.
@@ -26,7 +26,7 @@ if nargin < 3
     supplied = struct();
 end
 options = orb2ds.internal.options(supplied);
-accuracy = orb2ds.internal.resolve_accuracy(options.accuracy);
+tolerance = options.validation;
 problem = orb2ds.internal.check_problem(problem);
 solution = orb2ds.internal.check_record(solution);
 orb2ds.internal.same_orbit(problem.orbit, solution.orbit);
@@ -123,20 +123,19 @@ validation = struct('is_feasible', false, 'defects', defects, ...
     'target_error_km_s', target_error, 'earth_energy_km2_s2', energy, ...
     'earth_radial_speed_km_s', earth_radial, 'moon_radial_speed_km_s', moon_radial, ...
     'delta_v_m_s', 1000 * sum(vecnorm(impulses, 2, 2)));
-tolerance = options.validation;
-validation.accuracy = accuracy;
+validation.tolerances = tolerance;
 checks = struct();
 checks.segment_endpoints_reached = complete;
-checks.position_defects = validation.max_position_defect_km <= accuracy.dynamics.position_km;
-checks.velocity_defects = validation.max_velocity_defect_km_s <= accuracy.dynamics.velocity_km_s;
-checks.departure = validation.departure_position_error_km <= accuracy.departure.position_km && ...
-    validation.departure_velocity_error_km_s <= accuracy.departure.velocity_km_s;
+checks.position_defects = validation.max_position_defect_km <= tolerance.position_km;
+checks.velocity_defects = validation.max_velocity_defect_km_s <= tolerance.velocity_km_s;
+checks.departure = validation.departure_position_error_km <= tolerance.position_km && ...
+    validation.departure_velocity_error_km_s <= tolerance.velocity_km_s;
 checks.orbit_closure = norm(closure(1:3)) * model.distance_km <= ...
     tolerance.orbit_closure_position_km && norm(closure(4:6)) * model.velocity_km_s <= ...
     tolerance.orbit_closure_velocity_km_s;
-checks.target = target_error <= accuracy.target.velocity_km_s;
-checks.periapses = abs(earth_radial) <= accuracy.periapsis.radial_velocity_km_s && ...
-    abs(moon_radial) <= accuracy.periapsis.radial_velocity_km_s && ...
+checks.target = target_error <= tolerance.velocity_km_s;
+checks.periapses = abs(earth_radial) <= tolerance.velocity_km_s && ...
+    abs(moon_radial) <= tolerance.velocity_km_s && ...
     earth_acceleration >= 0 && moon_acceleration >= 0;
 earth_margin = 0;
 moon_margin = 0;
@@ -147,12 +146,12 @@ end
 if isfield(constraints, 'min_moon_altitude_km')
     moon_margin = constraints.min_moon_altitude_km;
 end
-checks.clearance = minimum_earth >= earth_margin - accuracy.clearance.altitude_km && ...
-    minimum_moon >= moon_margin - accuracy.clearance.altitude_km;
+checks.clearance = minimum_earth >= earth_margin - tolerance.position_km && ...
+    minimum_moon >= moon_margin - tolerance.position_km;
 checks.impulse_policy = ~isfield(constraints, 'impulse_nodes') || ...
     ~strcmp(constraints.impulse_nodes, 'endpoints') || ...
-    all(vecnorm(impulses(2:end - 1, :), 2, 2) <= accuracy.velocity_km_s);
-[checks.timing, validation.time_violations_days] = check_timing(solution, constraints, accuracy);
+    all(vecnorm(impulses(2:end - 1, :), 2, 2) <= tolerance.velocity_km_s);
+[checks.timing, validation.time_violations_days] = check_timing(solution, constraints, tolerance);
 validation.checks = checks;
 validation.local_is_feasible = all(cell2mat(struct2cell(checks)));
 
@@ -163,8 +162,8 @@ validation.chained = struct('reached_final_epoch', chain_complete, ...
     'endpoint_velocity_error_km_s', norm(chain_physical(4:6) - states(end, 4:6)), ...
     'closes_within_tolerances', false);
 validation.chained.closes_within_tolerances = chain_complete && ...
-    validation.chained.endpoint_position_error_km <= accuracy.position_km && ...
-    validation.chained.endpoint_velocity_error_km_s <= accuracy.velocity_km_s;
+    validation.chained.endpoint_position_error_km <= tolerance.position_km && ...
+    validation.chained.endpoint_velocity_error_km_s <= tolerance.velocity_km_s;
 chain_target_error = inf;
 if chain_complete
     chain_inertial = orb2ds.internal.frames(chain_physical, times(end), model, 'to_eci');
@@ -177,9 +176,9 @@ validation.chained.min_earth_altitude_km = chain_minimum_earth;
 validation.chained.min_moon_altitude_km = chain_minimum_moon;
 validation.chained.is_feasible = validation.local_is_feasible && ...
     validation.chained.closes_within_tolerances && ...
-    chain_target_error <= accuracy.target.velocity_km_s && ...
-    chain_minimum_earth >= earth_margin - accuracy.clearance.altitude_km && ...
-    chain_minimum_moon >= moon_margin - accuracy.clearance.altitude_km;
+    chain_target_error <= tolerance.velocity_km_s && ...
+    chain_minimum_earth >= earth_margin - tolerance.position_km && ...
+    chain_minimum_moon >= moon_margin - tolerance.position_km;
 validation.checks.chained = validation.chained.is_feasible;
 validation.is_feasible = validation.chained.is_feasible;
 end

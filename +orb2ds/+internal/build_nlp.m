@@ -27,7 +27,7 @@ if isfield(nlp.problem, 'database')
 end
 nlp.model = problem.orbit.model;
 nlp.options = options;
-nlp.accuracy = orb2ds.internal.resolve_accuracy(options.accuracy);
+nlp.constraint_tolerances = orb2ds.internal.resolve_constraint_tolerances(options);
 nlp.seed = seed;
 nlp.period_tu = problem.orbit.period_days / nlp.model.time_days;
 nlp.n_nodes = numel(seed.nodes.time_days);
@@ -113,7 +113,7 @@ for name = {'max_transfer_time_days', 'max_total_time_days'}
             'The duration cap is below the mesh time resolution; reduce the mesh or minimum_segment_days.');
     end
 end
-time_scale = 1e-9 * nlp.model.time_days / nlp.accuracy.time_days;
+time_scale = 1e-9 * nlp.model.time_days / nlp.constraint_tolerances.time_days;
 nlp.A = nlp.A * time_scale;
 nlp.b = nlp.b * time_scale;
 

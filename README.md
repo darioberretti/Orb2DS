@@ -45,8 +45,9 @@ all apply. Omitted numerical settings use `orb2ds.defaults.numerical_options`.
 Unknown library settings are rejected. See the [input/output contracts](docs/CONTRACTS.md).
 
 Integration accuracy, initial shooting-node spacing, solver stopping criteria
-and physical accuracy have explicit settings. See [physical accuracy](docs/ACCURACY.md)
-for general budgets and optional tighter exceptions. The [integration and mesh
+and physical validation tolerances have explicit settings. See
+[validation and constraint tolerances](docs/ACCURACY.md) for acceptance thresholds
+and optional tighter solver scales. The [integration and mesh
 guide](docs/MESH.md) explains the named refinement anchors, offsets and spacing.
 Node count is derived from spacing, arc durations and required event nodes.
 
@@ -103,8 +104,9 @@ if none passes, `result.candidate` can contain the rejected final record.
 Inspect `result.status`, `result.validation.checks`, solver stopping information
 and `result.validation.chained` separately. Chained propagation applies every
 burn continuously without resets to stored nodes; it has its own feasibility
-flag; both checks are required for acceptance. `result.accuracy` lists effective
-physical budgets. See [validation and tolerance meanings](docs/VALIDATION.md).
+flag; both checks are required for acceptance. `result.validation.tolerances`
+lists physical acceptance thresholds; `result.constraint_tolerances` lists the
+separate solver residual scales. See [validation and tolerance meanings](docs/VALIDATION.md).
 
 ```matlab
 record = result.solution;

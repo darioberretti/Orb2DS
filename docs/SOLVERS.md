@@ -135,12 +135,14 @@ the position/velocity thresholds for both segment closure and orbit departure.
 The basic and step-by-step examples also plot a rejected final candidate with
 an explicit unvalidated label; physical acceptance and result fields do not change.
 
-Residuals are scaled with `options.accuracy`: one physical budget corresponds
-to a scaled residual of `1e-9`. The default constraint threshold `1e-12` targets
-0.001 of each budget, leaving margin for integration and accumulation errors.
-Vector components are conservatively scaled using budget/sqrt(3). Native
-stopping overrides can affect convergence but do not change physical acceptance.
-See [physical accuracy](ACCURACY.md).
+Residuals are scaled with the resolved `options.solver.constraint_tolerances`.
+Empty settings inherit the corresponding `options.validation` tolerance;
+nonempty values can only tighten the solver scale and leave validation unchanged.
+One effective tolerance corresponds to a scaled residual of `1e-9`. The default
+constraint threshold `1e-12` targets 0.001 of each tolerance, leaving margin for
+integration and accumulation errors. Vector components use tolerance/sqrt(3).
+Native stopping overrides can affect convergence but do not change physical
+acceptance. See [validation and constraint tolerances](ACCURACY.md).
 
 The Earth boundary compares the actual outgoing excess-velocity vector in
 its hyperbolic domain. A real, twice differentiable extension permits trial

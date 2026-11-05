@@ -1,5 +1,5 @@
-function tests = test_accuracy
-%TEST_ACCURACY Verify physical budgets, shared residuals and final acceptance.
+function tests = test_tolerances
+%TEST_TOLERANCES Verify solver scales and independent physical acceptance.
 tests = functiontests(localfunctions);
 end
 
@@ -16,44 +16,56 @@ options.solver.max_iterations = 0;
 testCase.TestData.options = options;
 end
 
-function testExceptionSwitchInheritanceAndMinimum(testCase)
-settings = testCase.TestData.options.accuracy;
-settings.dynamics.position_km = 1e-4;
-settings.departure.velocity_km_s = 1e-4;
-disabled = orb2ds.internal.resolve_accuracy(settings);
-verifyEqual(testCase, disabled.dynamics.position_km, settings.position_km);
-settings.use_exceptions = true;
-enabled = orb2ds.internal.resolve_accuracy(settings);
-verifyEqual(testCase, enabled.dynamics.position_km, 1e-4);
-verifyEqual(testCase, enabled.departure.velocity_km_s, settings.velocity_km_s);
-verifyEqual(testCase, enabled.target.velocity_km_s, settings.velocity_km_s);
-verifyEqual(testCase, enabled.clearance.altitude_km, settings.position_km);
+function testSolverToleranceInheritanceAndMinimum(testCase)
+options = testCase.TestData.options;
+inherited = orb2ds.internal.resolve_constraint_tolerances(options);
+verifyEqual(testCase, inherited.dynamics.position_km, options.validation.position_km);
+verifyEqual(testCase, inherited.time_days, options.validation.time_days);
+options.solver.constraint_tolerances.dynamics.position_km = 1e-4;
+options.solver.constraint_tolerances.departure.velocity_km_s = 1e-4;
+options.solver.constraint_tolerances.time_days = 1e-8;
+tight = orb2ds.internal.resolve_constraint_tolerances(options);
+verifyEqual(testCase, tight.dynamics.position_km, 1e-4);
+verifyEqual(testCase, tight.departure.velocity_km_s, options.validation.velocity_km_s);
+verifyEqual(testCase, tight.target.velocity_km_s, options.validation.velocity_km_s);
+verifyEqual(testCase, tight.clearance.altitude_km, options.validation.position_km);
+verifyEqual(testCase, tight.time_days, 1e-8);
 end
 
-function testInvalidAccuracyValuesFailBeforeSolving(testCase)
-for bad = {0, -1, NaN, Inf, [1, 2]}
+function testInvalidToleranceValuesFailBeforeSolving(testCase)
+for bad = {0, -1, NaN, Inf, [1, 2], 1i, true}
     options = testCase.TestData.options;
-    options.accuracy.position_km = bad{1};
+    for name = fieldnames(options.validation).'
+        invalid = options;
+        invalid.validation.(name{1}) = bad{1};
+        verifyTrue(testCase, throws(@() orb2ds.internal.options(invalid)));
+    end
+    options.solver.constraint_tolerances.dynamics.position_km = bad{1};
     verifyTrue(testCase, throws(@() orb2ds.internal.options(options)));
     options = testCase.TestData.options;
-    options.accuracy.dynamics.position_km = bad{1};
+    options.solver.constraint_tolerances.time_days = bad{1};
     verifyTrue(testCase, throws(@() orb2ds.internal.options(options)));
 end
 options = testCase.TestData.options;
-options.accuracy.use_exceptions = 1;
+options.validation.position_km = [];
 verifyTrue(testCase, throws(@() orb2ds.internal.options(options)));
 options = testCase.TestData.options;
-options.accuracy.dynamics.unknown = 1;
+options.solver.constraint_tolerances.dynamics.unknown = 1;
+verifyError(testCase, @() orb2ds.internal.options(options), 'orb2ds:UnknownField');
+options = testCase.TestData.options;
+options.accuracy.position_km = 1e-3;
 verifyError(testCase, @() orb2ds.internal.options(options), 'orb2ds:UnknownField');
 end
 
-function testPhysicalBudgetsScaleOnlyTheirConstraintBlocks(testCase)
+function testSolverTolerancesScaleOnlyTheirConstraintBlocks(testCase)
 data = testCase.TestData.reference;
 options = testCase.TestData.options;
+data.problem.constraints.max_transfer_time_days = 30;
 base = orb2ds.internal.build_nlp(data.problem, data.solution, options);
-options.accuracy.use_exceptions = true;
-options.accuracy.dynamics.position_km = options.accuracy.position_km / 10;
-options.accuracy.target.velocity_km_s = options.accuracy.velocity_km_s / 4;
+options.solver.constraint_tolerances.dynamics.position_km = options.validation.position_km / 10;
+options.solver.constraint_tolerances.target.velocity_km_s = options.validation.velocity_km_s / 4;
+options.solver.constraint_tolerances.clearance.altitude_km = options.validation.position_km / 2;
+options.solver.constraint_tolerances.time_days = options.validation.time_days / 5;
 tight = orb2ds.internal.build_nlp(data.problem, data.solution, options);
 verifyEqual(testCase, tight.initial, base.initial);
 ratio = tight.equality_scale ./ base.equality_scale;
@@ -68,14 +80,19 @@ verifyEqual(testCase, ratio, expected, 'AbsTol', 1e-14);
 verifyEqual(testCase, te, expected .* e, 'AbsTol', 1e-14);
 verifyEqual(testCase, full(tge), full(ge * spdiags(expected, 0, numel(e), numel(e))), ...
     'AbsTol', 1e-10);
-verifyEqual(testCase, tc, c);
-verifyEqual(testCase, tgc, gc);
+expected_inequality = ones(size(c));
+expected_inequality(1:2 * base.n_nodes) = 2;
+verifyEqual(testCase, tc, expected_inequality .* c, 'AbsTol', 1e-14);
+verifyEqual(testCase, full(tgc), full(gc * spdiags(expected_inequality, 0, numel(c), numel(c))), ...
+    'AbsTol', 1e-10);
+verifyEqual(testCase, tight.A, 5 * base.A, 'AbsTol', 1e-14);
+verifyEqual(testCase, tight.b, 5 * base.b, 'AbsTol', 1e-14);
 end
 
 function testVectorBudgetBoundsTheNorm(testCase)
 data = testCase.TestData.reference;
 nlp = orb2ds.internal.build_nlp(data.problem, data.solution, testCase.TestData.options);
-tau = nlp.accuracy.dynamics.position_km;
+tau = nlp.constraint_tolerances.dynamics.position_km;
 physical = tau / sqrt(3) * [1; -1; 1];
 scaled = physical / nlp.model.distance_km .* nlp.equality_scale(7:9);
 verifyEqual(testCase, norm(physical), tau, 'AbsTol', 1e-16);
@@ -106,19 +123,33 @@ for velocity = {[0; 0; 0], [0; sqrt(0.5); 0], [0.1; 0.1; 0.1]}
 end
 end
 
-function testExceptionsAffectAcceptanceWithoutChangingPhysics(testCase)
+function testSolverTolerancesDoNotChangeValidation(testCase)
 data = testCase.TestData.reference;
 options = testCase.TestData.options;
 base = orb2ds.validate_solution(data.solution, data.problem, options);
 verifyTrue(testCase, base.is_feasible);
-options.accuracy.dynamics.position_km = base.max_position_defect_km / 2;
-disabled = orb2ds.validate_solution(data.solution, data.problem, options);
-verifyTrue(testCase, disabled.is_feasible);
-options.accuracy.use_exceptions = true;
+options.solver.constraint_tolerances.dynamics.position_km = base.max_position_defect_km / 2;
+options.solver.constraint_tolerances.target.velocity_km_s = 1e-10;
+options.solver.constraint_tolerances.clearance.altitude_km = 1e-8;
+options.solver.constraint_tolerances.time_days = 1e-10;
+tight = orb2ds.validate_solution(data.solution, data.problem, options);
+verifyEqual(testCase, tight, base);
+options.solver.name = 'ipopt';
+options.solver.evaluation = 'casadi';
+options.solver.constraint_tolerance = 1e-4;
+verifyEqual(testCase, orb2ds.validate_solution(data.solution, data.problem, options), base);
+end
+
+function testValidationTolerancesChangeAcceptanceWithoutChangingPhysics(testCase)
+data = testCase.TestData.reference;
+options = testCase.TestData.options;
+base = orb2ds.validate_solution(data.solution, data.problem, options);
+options.validation.position_km = base.max_position_defect_km / 2;
 tight = orb2ds.validate_solution(data.solution, data.problem, options);
 verifyFalse(testCase, tight.checks.position_defects);
 verifyFalse(testCase, tight.is_feasible);
 verifyEqual(testCase, tight.defects, base.defects);
+verifyEqual(testCase, tight.tolerances, options.validation);
 end
 
 function testLocalFeasibilityDoesNotAcceptAChainedFailure(testCase)

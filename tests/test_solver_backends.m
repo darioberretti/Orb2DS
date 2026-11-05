@@ -76,6 +76,9 @@ function testEquivalentValuesAndJacobiansAllTimingCases(testCase)
 require_casadi(testCase);
 options = testCase.TestData.options;
 options.solver.name = 'ipopt';
+options.solver.constraint_tolerances.dynamics.position_km = 1e-4;
+options.solver.constraint_tolerances.target.velocity_km_s = 1e-7;
+options.solver.constraint_tolerances.time_days = 1e-8;
 for initial = 0:3
     problem = testCase.TestData.problem;
     problem.constraints = struct('max_transfer_time_days', 10, 'max_total_time_days', 11);

@@ -25,6 +25,7 @@ solution = testCase.TestData.solution;
 validation = orb2ds.validate_solution(solution, testCase.TestData.problem, testCase.TestData.options);
 verifyTrue(testCase, validation.is_feasible);
 verifyTrue(testCase, validation.chained.is_feasible);
+verifyEqual(testCase, validation.tolerances, testCase.TestData.options.validation);
 verifyLessThan(testCase, validation.target_error_km_s, 1e-5);
 verifyEqual(testCase, validation.delta_v_m_s, ...
     1000 * sum(vecnorm(solution.nodes.delta_v_km_s, 2, 2)), 'AbsTol', 1e-10);
@@ -50,6 +51,8 @@ for mode = 1:4
     result = orb2ds.optimize_transfer(problem, solution, testCase.TestData.options);
     verifyNotEmpty(testCase, result.solution);
     verifyTrue(testCase, result.validation.is_feasible);
+    verifyEqual(testCase, result.constraint_tolerances, ...
+        orb2ds.internal.resolve_constraint_tolerances(testCase.TestData.options));
     verifyTrue(testCase, result.validation.checks.timing);
     if mode ~= 1
         verifyEqual(testCase, result.solution.timing.wait_days, 0);

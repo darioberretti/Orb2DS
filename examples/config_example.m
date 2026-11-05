@@ -18,8 +18,8 @@ function cfg = config_example()
 %
 % NOTES:
 %   Physical constraints set to [] or omitted remain free. Omitted numerical
-%   fields use orb2ds.defaults.numerical_options(). Optional accuracy
-%   exceptions accept [] to inherit their general budget.
+%   fields use orb2ds.defaults.numerical_options(). Optional solver constraint
+%   tolerances accept [] to inherit the corresponding validation tolerance.
 %   Explicit zero is a value, not an instruction to use a default.
 
 %% Model and departure orbit
@@ -206,9 +206,9 @@ cfg.options.solver.cvodes = struct();               % Native CVODES integrator o
 % display: off -> IPOPT level 0; final -> level 0 + final status;
 % iter -> level 5; iter-detailed -> level 7. output.display is independent.
 % Common tolerances have different solver meanings; validation is unchanged.
-% A scaled residual of 1e-9 represents one physical error budget. The default
-% constraint_tolerance=1e-12 targets 0.001 of each budget. This advanced
-% numerical threshold is separate from the physical accuracy settings below.
+% A scaled residual of 1e-9 represents one effective solver constraint tolerance.
+% The default constraint_tolerance=1e-12 targets 0.001 of each tolerance. This
+% dimensionless stopping threshold is separate from validation thresholds.
 % Native overrides can change stopping behavior, but never acceptance budgets.
 % CVODES overrides affect symbolic optimization only. Independent physical
 % validation always uses ode113 with options.integration tolerances.
@@ -217,40 +217,46 @@ cfg.options.solver.cvodes = struct();               % Native CVODES integrator o
 % A time cap incompatible with node count/minimum_segment_days is an error;
 % choose a coarser mesh or smaller numerical duration resolution explicitly.
 
-%% Physical accuracy and optional tighter exceptions
+%% Independent physical validation
 
-% These budgets apply to vector-error norms, not separate Cartesian axes.
-% The solver residuals and independent validator use the same resolved values.
-% All physical tolerances must be positive finite scalars.
-cfg.options.accuracy.position_km = 1e-3;    % 1 m; chained endpoint position budget.
-cfg.options.accuracy.velocity_km_s = 1e-6;  % 1 mm/s; chained endpoint velocity budget.
-cfg.options.accuracy.time_days = 1e-7;     % Timing equalities and duration caps [days].
-cfg.options.accuracy.use_exceptions = false; % true applies the optional values below.
+% Always-active acceptance thresholds for independent ode113 propagation.
+% Vector errors use Euclidean norms, not separate Cartesian axes. All values
+% must be positive finite scalars; solver constraint settings do not change them.
+% Position covers segment/departure/chained errors and altitude shortfall.
+% Velocity covers segment/departure/chained errors, target, radial speed and
+% impulse policy. Time covers timing equalities and waiting/flight/total caps.
+cfg.options.validation.position_km = 1e-3;    % 1 m.
+cfg.options.validation.velocity_km_s = 1e-6;  % 1 mm/s.
+cfg.options.validation.time_days = 1e-7;      % Local days.
 
-% [] inherits the general value. When enabled, an exception applies
-% min(general,specific): it can only tighten a budget. Disabling exceptions
-% preserves their settings but applies only the general values. Both enabled
-% and disabled nonempty values must have the indicated units and valid types.
-cfg.options.accuracy.dynamics.position_km = [];     % Per-segment position defect [km].
-cfg.options.accuracy.dynamics.velocity_km_s = [];   % Per-segment velocity defect [km/s].
-cfg.options.accuracy.departure.position_km = [];    % Pre-burn departure-to-orbit error [km].
-cfg.options.accuracy.departure.velocity_km_s = [];  % Pre-burn departure-to-orbit error [km/s].
-cfg.options.accuracy.target.velocity_km_s = [];     % Achieved outgoing Earth vector error [km/s].
-cfg.options.accuracy.periapsis.radial_velocity_km_s = []; % Earth/Moon radial speed [km/s].
-cfg.options.accuracy.clearance.altitude_km = [];    % Numerical altitude shortfall [km].
-% Example: set use_exceptions=true and dynamics.position_km=1e-4 for 10 cm
-% local position continuity while retaining the global 1 m endpoint budget.
-% Clearance accuracy is numerical tolerance, not the minimum mission altitude.
-% The time budget covers phase/epoch couplings and waiting/flight/total caps.
-% result.accuracy lists all effective budgets. result.solution requires BOTH
-% local checks and chained propagation to pass; otherwise inspect candidate.
-
-%% Supplied-orbit validation
-
-% These test the input orbit over one period; transfer optimization cannot
-% repair its supplied reference state or period.
+% Check the supplied orbit over one period; optimization cannot repair its
+% reference state or period. These thresholds also apply during database building.
 cfg.options.validation.orbit_closure_position_km = 0.01;  % One-period position closure [km].
 cfg.options.validation.orbit_closure_velocity_km_s = 1e-7;% One-period velocity closure [km/s].
+% Altitude tolerance allows a numerical shortfall from the mission minimum;
+% the physical minimum itself is set in cfg.constraints.
+% result.validation.tolerances reports the thresholds used. result.solution
+% requires BOTH local and chained checks to pass; otherwise inspect candidate.
+
+%% Solver constraint tolerances
+
+% Physical residual scales used ONLY during optimization. [] inherits the
+% corresponding validation tolerance above. A nonempty value applies immediately
+% as min(validation,value), without an enable flag; it can only tighten the scale.
+% All nonempty values must be positive finite scalars in the indicated units.
+cfg.options.solver.constraint_tolerances.dynamics.position_km = [];   % Per-segment position defect [km].
+cfg.options.solver.constraint_tolerances.dynamics.velocity_km_s = []; % Per-segment velocity defect [km/s].
+cfg.options.solver.constraint_tolerances.departure.position_km = []; % Departure-to-orbit position [km].
+cfg.options.solver.constraint_tolerances.departure.velocity_km_s = []; % Departure-to-orbit velocity [km/s].
+cfg.options.solver.constraint_tolerances.target.velocity_km_s = [];  % Outgoing Earth vector error [km/s].
+cfg.options.solver.constraint_tolerances.periapsis.radial_velocity_km_s = []; % Event radial speed [km/s].
+cfg.options.solver.constraint_tolerances.clearance.altitude_km = []; % Node radius shortfall [km].
+cfg.options.solver.constraint_tolerances.time_days = [];             % Timing equalities and duration caps [days].
+% Example: dynamics.position_km=1e-4 requests a 10 cm solver scale while
+% validation still accepts 1 m, including for the chained endpoint error.
+% Equalities remain zero and mission limits are unchanged. The actual residual
+% stopping threshold also depends on solver.constraint_tolerance, as above.
+% result.constraint_tolerances reports all effective solver scales.
 
 %% Optional multistart and automatic messages
 

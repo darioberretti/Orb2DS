@@ -42,7 +42,9 @@ requires a loaded database; `optimize_transfer` does not read one. Numerical
 defaults and validation are shared by preparation and direct stage calls.
 Unknown library fields are errors; explicit native solver/integrator blocks
 admit options validated by their respective libraries. Omit numerical fields for their defaults; empty
-numerical leaves are rejected except optional accuracy exceptions, where [] inherits the general budget. Empty physical constraints mean absent/free.
+numerical leaves are rejected except optional solver constraint tolerances,
+where [] inherits the corresponding validation tolerance. Empty physical
+constraints mean absent/free.
 
 `options.output.display` controls automatic library search/stage/physical-summary
 messages. `options.solver.display` independently selects `'off'`, `'final'`,
@@ -183,7 +185,7 @@ physical initialization, without solving or requiring a solver dependency.
 
 ## Result and reconstruction
 
-`result` contains status, `solution`, `candidate`, `validation`, `accuracy`, `seed`, compact
+`result` contains status, `solution`, `candidate`, `validation`, `constraint_tolerances`, `seed`, compact
 `solver` diagnostics, attempt summaries, active constraints, effective inputs
 (without the database), and provenance. `find_transfer` also reports search
 diagnostics. Distinguish `no_seed_found`, `no_validated_solution`,
@@ -226,5 +228,6 @@ Sampled trajectories never appear inside results, including seeds, failed
 candidates and multistart attempts. Optional `output.keep_attempt_solutions`
 retains compact records only. Independent chained propagation is reported
 alongside `validation.local_is_feasible`. Overall `validation.is_feasible`
-requires both; see [VALIDATION.md](VALIDATION.md). `result.accuracy` lists resolved
-physical budgets; [ACCURACY.md](ACCURACY.md) defines exceptions and residual scaling.
+requires both; see [VALIDATION.md](VALIDATION.md). `result.validation.tolerances`
+lists acceptance thresholds and `result.constraint_tolerances` lists resolved
+solver scales. [ACCURACY.md](ACCURACY.md) defines their inheritance and residual scaling.

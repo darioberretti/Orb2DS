@@ -41,8 +41,9 @@ Only local-day epochs are supported. Nonempty `final_time_days` requests are
 rejected. Astronomical ephemerides and solar gravity are not part of the model.
 The implementation language is MATLAB.
 
-Physical accuracy budgets and optional tighter exceptions scale solver residuals
-and physical checks. Acceptance requires local and chained feasibility; solver
+Validation tolerances define independent physical acceptance. Separate solver
+constraint tolerances inherit them or tighten residual scales during optimization.
+Acceptance requires local and chained feasibility; solver
 convergence and both physical statuses are reported separately. IPOPT behavior
 and integration error can depend on the guess
 and numerical settings. Coverage of the example and tests does not guarantee

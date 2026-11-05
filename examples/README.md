@@ -35,7 +35,8 @@ optimized physical transfer. Initial epoch and phase are free in the example.
 
 All numerical fields are explicit in the template; you may remove any you want
 to inherit from `+orb2ds/+defaults/numerical_options.m`. Empty physical constraints
-remain free; numerical [] is invalid. A model or orbit change requires a matching
+remain free; numerical [] is invalid except for optional solver constraint
+tolerances, which inherit validation thresholds. A model or orbit change requires a matching
 database rather than relabeling this one. Reconstruction/plotting settings are
 also documented at the end as separate copyable calls, outside the solver cfg.
 
@@ -49,13 +50,15 @@ Nothing saves transfer results or figures automatically. Save `result` or its
 self-contained `solution` explicitly if needed. Dense trajectory samples are
 returned only by `reconstruct_trajectory` and never inserted into a result.
 
-## Physical accuracy
+## Validation and solver constraint tolerances
 
-Set `cfg.options.accuracy.position_km`, `velocity_km_s` and `time_days` for the
-general budgets. Optional per-requirement exceptions are applied only when
-`accuracy.use_exceptions=true`, and can only tighten the general values.
-The configuration lists every exception and unit. `result.accuracy` reports
-the resolved values; see [ACCURACY.md](../docs/ACCURACY.md).
+Set `cfg.options.validation.position_km`, `velocity_km_s` and `time_days` for
+independent physical acceptance. The following config section lists optional
+`cfg.options.solver.constraint_tolerances`: [] inherits validation, while a
+nonempty value immediately tightens only the solver residual scale. No enable
+flag is needed. `result.validation.tolerances` reports acceptance thresholds;
+`result.constraint_tolerances` reports resolved solver scales. See
+[ACCURACY.md](../docs/ACCURACY.md) for units and inheritance rules.
 
 ## Creating a database
 

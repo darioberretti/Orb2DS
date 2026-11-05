@@ -3,7 +3,7 @@ function options = options(supplied)
 
 options = orb2ds.internal.merge_options( ...
     orb2ds.defaults.numerical_options(), supplied, 'options');
-orb2ds.internal.resolve_accuracy(options.accuracy);
+orb2ds.internal.resolve_constraint_tolerances(options);
 validateattributes(options.solver.constraint_tolerance, {'double'}, ...
     {'scalar', 'real', 'finite', 'positive'});
 validateattributes(options.n_starts, {'double'}, {'scalar', 'integer', 'positive'});
