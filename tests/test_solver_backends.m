@@ -81,7 +81,8 @@ options.solver.constraint_tolerances.target.velocity_km_s = 1e-7;
 options.solver.constraint_tolerances.time_days = 1e-8;
 for initial = 0:3
     problem = testCase.TestData.problem;
-    problem.constraints = struct('max_transfer_time_days', 10, 'max_total_time_days', 11);
+    problem.constraints = struct('max_transfer_time_days', 10, 'max_total_time_days', 11, ...
+        'max_wait_time_days', 3);
     if bitand(initial, 1)
         problem.constraints.initial_time_days = 4;
     end

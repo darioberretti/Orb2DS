@@ -35,9 +35,11 @@ optimized physical transfer. Initial epoch and phase are free in the example.
 
 All numerical fields are explicit in the template; you may remove any you want
 to inherit from `+orb2ds/+defaults/numerical_options.m`. Empty physical constraints
-remain free; numerical [] is invalid except for optional solver constraint
-tolerances, which inherit validation thresholds. A model or orbit change requires a matching
-database rather than relabeling this one. Reconstruction/plotting settings are
+remain free except `max_wait_time_days`: omitted, [] or 0 disables waiting;
+a positive finite value enables it up to that limit. Numerical [] is invalid
+except for optional solver constraint tolerances, which inherit validation
+thresholds. A model or orbit change requires a matching database; relabeling
+this one does not make it compatible. Reconstruction/plotting settings are
 also documented at the end as separate copyable calls, outside the solver cfg.
 
 The example configuration declares its target vector, model and numerical settings.

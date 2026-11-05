@@ -39,9 +39,11 @@ scripts. It lists every supported input and numerical setting, including units,
 allowed values, defaults and interactions. Relative file paths are resolved
 against that configuration file. Rename its function if you rename the file.
 
-Omitted physical constraints stay free. The seed's phase/time origin does not
-fix departure phase or epoch, and supplied waiting/flight/total-duration caps
-all apply. Omitted numerical settings use `orb2ds.defaults.numerical_options`.
+Omitted physical constraints stay free, except waiting: an omitted, empty or
+zero `max_wait_time_days` disables it. A positive finite value enables waiting
+up to that limit. The seed's phase/time origin does not fix departure phase
+or epoch, and supplied waiting/flight/total-duration caps all apply. Omitted
+numerical settings use `orb2ds.defaults.numerical_options`.
 Unknown library settings are rejected. See the [input/output contracts](docs/CONTRACTS.md).
 
 Integration accuracy, initial shooting-node spacing, solver stopping criteria

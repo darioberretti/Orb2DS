@@ -1,5 +1,5 @@
 function problem = check_problem(problem)
-%CHECK_PROBLEM Validate a scientific request without supplying physical limits.
+%CHECK_PROBLEM Validate a scientific request and resolve the waiting default.
 
 assert(isstruct(problem) && isscalar(problem), 'orb2ds:Problem', ...
     'problem must be a scalar structure.');
@@ -32,6 +32,15 @@ allowed = {'initial_time_days', 'initial_phase', 'max_wait_time_days', ...
 unknown = setdiff(fieldnames(constraints), allowed);
 assert(isempty(unknown), 'orb2ds:UnknownField', 'Unknown constraint: %s.', ...
     strjoin(unknown, ', '));
+% Waiting is disabled unless a finite positive limit is explicitly supplied.
+if ~isfield(constraints, 'max_wait_time_days') || ...
+        (isa(constraints.max_wait_time_days, 'double') && isempty(constraints.max_wait_time_days))
+    constraints.max_wait_time_days = 0;
+end
+wait = constraints.max_wait_time_days;
+assert(isa(wait, 'double') && isreal(wait) && isscalar(wait) && isfinite(wait) && wait >= 0, ...
+    'orb2ds:WaitTime', ...
+    'constraints.max_wait_time_days must be [] or a finite real scalar >= 0; use 0 to disable waiting.');
 names = fieldnames(constraints);
 for index = 1:numel(names)
     name = names{index};

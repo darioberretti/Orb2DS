@@ -24,7 +24,14 @@ periodic input orbits, normalized orbital phase and explicit km/km/s/day units.
 Targets may use Earth-centered inertial or Earth-Sun radial/transverse/normal
 coordinates. Initial epoch and phase can be supplied independently or left free.
 Waiting, transfer and total duration caps intersect with altitude and impulse
-location constraints.
+location constraints. Waiting defaults to zero when its cap is omitted or [];
+a positive finite `max_wait_time_days` enables it.
+
+Initial-guess construction uses the supplied initial event: phase shortlists,
+forward waiting replicas, anchored lunar encounter epochs and intersecting
+time caps. RTH legs update the target at arrival. Construction diagnostics
+report remaining timing/geometry mismatch before optimization; see
+[CONTRACTS.md](CONTRACTS.md#database-and-stage-outputs).
 
 The library generates, saves, validates and reuses schema-1 orbit-Moon databases.
 Compact guesses and solutions contain their orbit/model and do not require a

@@ -44,7 +44,8 @@ Unknown library fields are errors; explicit native solver/integrator blocks
 admit options validated by their respective libraries. Omit numerical fields for their defaults; empty
 numerical leaves are rejected except optional solver constraint tolerances,
 where [] inherits the corresponding validation tolerance. Empty physical
-constraints mean absent/free.
+constraints mean absent/free, except `max_wait_time_days`: omitted or []
+resolves to zero and disables waiting, including in direct stage calls.
 
 `options.output.display` controls automatic library search/stage/physical-summary
 messages. `options.solver.display` independently selects `'off'`, `'final'`,
@@ -83,15 +84,15 @@ geometry and nonempty final-epoch requests are unsupported.
 `solar_geometry.rate_rad_day`. The angle is Earth-to-Sun at local t=0; R points
 Sun-to-Earth, T follows the declared planar heliocentric motion and H is +Z.
 The requested vector is constant in its declared frame. The NLP converts RTH
-at the actual final epoch, including its time derivative. Patching uses an
-epoch-zero target snapshot for initialization; the final target is never frozen
-to that snapshot. Ephemeris generation and solar gravity are not added.
+at the actual final epoch, including its time derivative. Patching updates the
+RTH target at estimated arrival epochs and assembly refines it using the
+reconstructed timing. Ephemeris generation and solar gravity are not added.
 
-| Constraint | When present |
+| Constraint | Meaning |
 |---|---|
 | `initial_time_days` | Epoch of the initial vehicle event, before waiting. |
 | `initial_phase` | Normalized orbital phase at that event. |
-| `max_wait_time_days` | Waiting upper bound; zero forbids waiting. |
+| `max_wait_time_days` | Waiting cap [days]. Omitted, [] or 0 disables waiting; a positive finite scalar enables it. Other values are input errors. |
 | `max_transfer_time_days` | Upper bound from departure to final Earth perigee. |
 | `max_total_time_days` | Upper bound including applicable waiting. |
 | `min_earth_altitude_km` | Earth clearance above the model radius. |
@@ -99,11 +100,13 @@ to that snapshot. Ephemeris generation and solar gravity are not added.
 | `impulse_nodes` | `all` (default) or `endpoints`. |
 | `final_time_days` | Must be empty or omitted; nonempty values are unsupported. |
 
-Omitted quantities stay free. Body impacts are always excluded. Caps intersect;
-none silently overrides another. If neither initial epoch nor phase is supplied,
+Omitted quantities stay free except waiting, which defaults to zero. Body
+impacts are always excluded. Caps intersect; none silently overrides another.
+If neither initial epoch nor phase is supplied,
 departure epoch and phase are independent optimization quantities, no earlier
 event is invented, waiting caps are redundant and total equals transfer time.
-Otherwise waiting is nonnegative. A known epoch sets `td=t0+w`; a known phase
+Otherwise waiting satisfies `0 <= w <= max_wait_time_days`, with zero used
+when that cap is omitted or []. A known epoch sets `td=t0+w`; a known phase
 sets `sd=mod(s0+w/T,1)`. Missing epoch/phase remains free. Compatible redundant
 caps are accepted and obvious redundancies are reported.
 
@@ -135,11 +138,51 @@ states and both velocity definitions are checked for consistency on load.
 `find_legs` returns a compact ranked candidate array, copying the orbit-side
 departure data, Earth-side Lambert state/perigee/impulse, lunar asymptotes and
 source/ranking metadata. Assembly does not subsequently look up database rows.
-The matcher preserves altitude growth/improvement, speed neighbors, deflection
-screening, Earth-burn ranking and closest-speed neighbor selection.
+The matcher uses altitude growth, speed neighbors and deflection screening.
+Initial-event constraints also specialize the construction:
+
+| Supplied initial information | Guess construction |
+|---|---|
+| Neither epoch nor phase | Search all database departure phases; let lunar geometry determine epoch. Waiting is zero. |
+| Phase, waiting forbidden | Search the two closest circular database phase slices; propagate departure at the exact requested phase. Epoch stays free. |
+| Phase, waiting allowed | Also search database phases reachable by forward waiting. Epoch stays free. |
+| Epoch, waiting forbidden | Sample lunar encounter epochs consistent with that departure epoch; search all departure phases. |
+| Epoch, waiting allowed | Extend the encounter window and choose a nonnegative wait for lunar alignment, within the active caps. Phase stays free. |
+| Both, waiting forbidden | Combine the phase shortlist with the anchored encounter-epoch search. |
+| Both, waiting allowed | Also search subsequent orbit revolutions; phase and epoch advance by the same wait. |
+
+Ranking first minimizes estimated time-cap excess, prefers exact database
+departure phases over borrowed neighboring-phase data, then minimizes lunar
+epoch mismatch and estimated Earth burn. Within one Earth leg, closest lunar
+speed breaks ties. With no initial constraints and inactive duration caps,
+this reduces to Earth-burn ranking. A shortlist uses approximate two-body inbound
+flyby durations; assembly recomputes timing with the finite CR3BP passage.
+
+`patching.n_moon` samples lunar angles for a free epoch and encounter epochs
+for a specified epoch (default 201). With both initial quantities specified,
+the matcher enumerates waits `w0 + k*T <= max_wait_time_days`, where `w0` is
+the first forward wait to the database phase and `T` is the orbit period.
+With only epoch supplied, the encounter window spans the permitted wait.
+With only phase supplied, the earliest wait to each database phase suffices
+because departure epoch remains free. Transfer and total caps are then
+screened together with waiting; they remain unchanged in the NLP.
+`patching.target_iterations` is a positive integer, default 8, bounding RTH
+arrival-epoch updates in matching and assembly; ECI targets do not use it.
+
+The returned search diagnostics include the shortlisted database phase grid,
+row/replica counts and best timing estimate. A finite search is not a proof
+that no compatible patch exists. If every sampled patch exceeds a time cap,
+the lowest-excess guesses are retained without changing the requested cap.
 
 `assemble_transfer` returns compact CR3BP/Earth-two-body propagation recipes,
 SOI entry/perilune/exit and Earth-perigee epochs, impulses and provenance.
+Departure is propagated at the selected phase and its epoch is anchored to
+`initial_time_days + wait_days` when specified. The wait is carried through
+meshing into the NLP. Exact timing-cap excess, lunar epoch mismatch and
+`meets_time_caps` are recorded under `provenance.seed_screening`; RTH also
+reports `target_epoch_error_km_s`. These describe guess construction, not
+physical acceptance. The optimizer must correct all remaining patch defects,
+including those introduced by borrowing departure data from a nearby phase.
 An unreconstructible finite lunar passage returns empty. `mesh_transfer` samples
 those recipes, retains event anchors and emits the node record below. Patch
 defects remain visible. Optimization never silently rediscretizes that record.

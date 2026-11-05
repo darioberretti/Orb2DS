@@ -10,6 +10,10 @@ function transfer = assemble_transfer(problem, candidate, supplied)
 %   an Earth-two-body arrival arc. Retain lunar entry/closest-approach/exit
 %   epochs, patch defects and terminal pre/post-impulse states. Frame
 %   transforms use the circular lunar velocity from the supplied model.
+%   Rebuild departure at the requested phase, anchor epochs after the chosen
+%   wait, and update RTH legs at their reconstructed arrival epoch. Exact
+%   timing-cap excess and remaining lunar alignment error are diagnostics;
+%   patch defects are left for the NLP, not hidden by moving mesh nodes.
 %
 % INPUT:
 %   problem    Current physical problem; no database access is required.
@@ -26,6 +30,82 @@ end
 options = orb2ds.internal.options(supplied);
 problem = orb2ds.internal.check_problem(problem);
 orb2ds.internal.same_orbit(problem.orbit, candidate.orbit);
+wait = 0;
+if isfield(candidate.orbit_moon, 'wait_days')
+    wait = candidate.orbit_moon.wait_days;
+end
+if isfield(problem.constraints, 'initial_phase')
+    candidate.orbit_moon.departure_phase = mod(problem.constraints.initial_phase + ...
+        wait / problem.orbit.period_days, 1);
+end
+for iteration = 1:options.patching.target_iterations
+    transfer = assemble_arcs(problem, candidate, options);
+    if isempty(transfer)
+        return
+    end
+    raw_departure = transfer.arcs(1).start_days;
+    flight = transfer.arcs(end).end_days - raw_departure;
+    timing = orb2ds.internal.seed_timing(problem, raw_departure, ...
+        transfer.departure_phase, wait, flight);
+    shift = timing.departure_days - raw_departure;
+    for index = 1:numel(transfer.arcs)
+        transfer.arcs(index).start_days = transfer.arcs(index).start_days + shift;
+        transfer.arcs(index).end_days = transfer.arcs(index).end_days + shift;
+        transfer.arcs(index).initial_days = transfer.arcs(index).initial_days + shift;
+    end
+    names = fieldnames(transfer.events);
+    for index = 1:numel(names)
+        transfer.events.(names{index}) = transfer.events.(names{index}) + shift;
+    end
+    transfer.wait_days = timing.wait_days;
+    transfer.departure_phase = timing.phase;
+    transfer.provenance.seed_screening = timing;
+    transfer.provenance.seed_screening.meets_time_caps = timing.time_excess_days <= 1e-10;
+
+    if ~strcmp(problem.target.frame, 'earth_sun_rth')
+        break
+    end
+    final_time = transfer.events.earth_periapsis_days;
+    achieved_target = orb2ds.internal.target_eci(problem.target, ...
+        candidate.moon_earth.target_epoch_days);
+    target = orb2ds.internal.target_eci(problem.target, final_time);
+    error = norm(achieved_target - target);
+    transfer.provenance.seed_screening.target_epoch_error_km_s = error;
+    if error <= 1e-8 || iteration == options.patching.target_iterations
+        break
+    end
+    [earth, success] = orb2ds.internal.earth_seed_leg(problem, ...
+        candidate.ranking.altitude_km, candidate.provenance.perigee_sample, ...
+        candidate.moon_earth.moon_angle_rad, final_time, options);
+    if ~success
+        transfer = [];
+        return
+    end
+    candidate.moon_earth = earth;
+end
+if options.output.display
+    fprintf('orb2ds guess: phase %.9g, departure %.9g days, wait %.6g days\n', ...
+        timing.phase, timing.departure_days, timing.wait_days);
+    fprintf('  Flight %.6g days; total %.6g days; time-cap excess %.6g days\n', ...
+        timing.transfer_days, timing.total_days, timing.time_excess_days);
+    fprintf('  Lunar epoch alignment error %.6g rad (patched guess, before optimization)\n', ...
+        timing.moon_phase_mismatch_rad);
+end
+end
+
+function transfer = assemble_arcs(problem, candidate, options)
+%ASSEMBLE_ARCS Reconstruct finite flyby boundaries and the three physical arcs.
+%
+% DESCRIPTION:
+%   Build a mean-speed bisector perilune state and integrate CR3BP motion
+%   to both lunar boundary crossings. Preserve the sampled inertial lunar
+%   azimuth in the raw timeline; initial-event anchoring is applied afterward.
+% INPUT:
+%   problem/candidate  Checked request and one compact matched-leg record.
+%   options            Resolved numerical integration/patching settings.
+% OUTPUT:
+%   transfer  Compact km/km/s/day arc recipes, or [] if the finite passage
+%             cannot be reconstructed inside the declared flyby horizon.
 model = problem.orbit.model;
 transfer = [];
 incoming = candidate.orbit_moon.velocity_infinity_rth_km_s(:);

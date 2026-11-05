@@ -60,6 +60,7 @@ for index = 1:2
     verifyEqual(testCase, problem.target.vinf_km_s(1), index);
     verifyFalse(testCase, isfield(problem.constraints, 'initial_phase'));
     verifyFalse(testCase, isfield(problem.constraints, 'initial_time_days'));
+    verifyEqual(testCase, problem.constraints.max_wait_time_days, 0);
     verifyEqual(testCase, options.n_starts, 1);
     verifyEqual(testCase, pwd, original_directory);
 end
@@ -86,6 +87,7 @@ verifyEqual(testCase, pwd, original_directory);
 verifyFalse(testCase, isfield(relocated.constraints, 'initial_time_days'));
 verifyFalse(testCase, isfield(relocated.constraints, 'initial_phase'));
 verifyFalse(testCase, isfield(relocated.constraints, 'final_time_days'));
+verifyEqual(testCase, relocated.constraints.max_wait_time_days, 0);
 verifyEqual(testCase, numel(relocated.database.encounters.row_id), 1986);
 end
 

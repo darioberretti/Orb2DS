@@ -8,7 +8,8 @@ function nlp = build_nlp(problem, seed, options)
 %   Node states are post-impulse. Each impulse uses the Oshima quadratic map.
 %   Durations, departure epoch, normalized phase and waiting are represented
 %   only where independent under the supplied initial-event information.
-%   All omitted physical limits remain absent; mesh construction is separate.
+%   Omitted waiting limits resolve to zero; other omitted physical limits
+%   remain absent. Mesh construction is separate.
 %
 % INPUT:
 %   problem  Current canonical orbit, target and physical constraints.
@@ -74,9 +75,7 @@ if ~isempty(nlp.phase_index)
 end
 if ~isempty(nlp.wait_index)
     nlp.lower(nlp.wait_index) = 0;
-    if isfield(constraints, 'max_wait_time_days')
-        nlp.upper(nlp.wait_index) = constraints.max_wait_time_days / nlp.model.time_days;
-    end
+    nlp.upper(nlp.wait_index) = constraints.max_wait_time_days / nlp.model.time_days;
 end
 nlp.active_impulses = true(count, 1);
 if isfield(constraints, 'impulse_nodes') && strcmp(constraints.impulse_nodes, 'endpoints')

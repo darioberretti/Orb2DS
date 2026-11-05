@@ -92,6 +92,7 @@ function testSingleKnownInitialQuantity(testCase)
 for name = {'initial_phase', 'initial_time_days'}
     problem = testCase.TestData.problem;
     problem.constraints.(name{1}) = 0.17;
+    problem.constraints.max_wait_time_days = 3;
     nlp = orb2ds.internal.build_nlp(problem, testCase.TestData.seed, testCase.TestData.options);
     nlp.initial(nlp.wait_index) = 0.3;
     columns = [nlp.phase_index, nlp.epoch_index, nlp.wait_index, nlp.duration_indices];

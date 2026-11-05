@@ -7,6 +7,9 @@ function [seed, diagnostics] = build_initial_guess(problem, supplied)
 %   problem/options  Same contracts as find_transfer.
 % OUTPUT:
 %   seed         First reconstructible ranked compact guess, or empty.
+%                Matching and assembly account for the initial event, waiting,
+%                time caps and target frame. provenance.seed_screening reports
+%                remaining timing/geometry mismatch; it is not validation.
 %   diagnostics  Search diagnostics and selected candidate index. No NLP is
 %                solved and no trajectories or files are stored.
 

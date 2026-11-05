@@ -7,7 +7,7 @@ end
 constraints = problem.constraints;
 redundant = {};
 has_event = isfield(constraints, 'initial_time_days') || isfield(constraints, 'initial_phase');
-if ~has_event && isfield(constraints, 'max_wait_time_days')
+if ~has_event && constraints.max_wait_time_days > 0
     redundant{end + 1} = 'max_wait_time_days: no separate initial event';
 end
 if isfield(constraints, 'max_total_time_days') && isfield(constraints, 'max_transfer_time_days')

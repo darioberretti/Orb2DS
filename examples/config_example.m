@@ -17,7 +17,8 @@ function cfg = config_example()
 %   cfg  Orbit/files, target, physical constraints and all numerical options.
 %
 % NOTES:
-%   Physical constraints set to [] or omitted remain free. Omitted numerical
+%   Physical constraints set to [] or omitted remain free, except waiting:
+%   max_wait_time_days defaults to zero. Omitted numerical
 %   fields use orb2ds.defaults.numerical_options(). Optional solver constraint
 %   tolerances accept [] to inherit the corresponding validation tolerance.
 %   Explicit zero is a value, not an instruction to use a default.
@@ -75,7 +76,8 @@ cfg.target.vinf_km_s = [-2.0511679723998526; 1.4213996556899797; -0.157514388307
 % R points Sun-to-Earth, T follows planar heliocentric motion, H is +Z.
 % The solar angle below is Earth-to-Sun at local t=0. Specify the geometry
 % explicitly; this adds neither ephemerides nor solar gravity. The target is
-% enforced at the optimized final epoch; patching uses an epoch-zero snapshot.
+% evaluated at the estimated arrival epoch while constructing the guess,
+% then at the actual final epoch throughout optimization.
 % cfg.target.frame = 'earth_sun_rth';
 % cfg.target.vinf_km_s = [2.4; 0.5; 0.1];
 % cfg.target.solar_geometry.angle_ref_rad = 0.4;              % [rad].
@@ -86,14 +88,16 @@ cfg.target.vinf_km_s = [-2.0511679723998526; 1.4213996556899797; -0.157514388307
 % t=0 and phase=0 identify the seed reference, not fixed departure conditions.
 cfg.constraints.initial_time_days = [];       % Initial event epoch [local days].
 cfg.constraints.initial_phase = [];           % Initial event phase [0,1]; 1 maps to 0.
-cfg.constraints.max_wait_time_days = [];      % Wait cap [days]; 0 forbids waiting.
+% Waiting cap [days]: omitted, [] or 0 disables waiting. A positive finite
+% real scalar enables it up to that limit; other values are input errors.
+cfg.constraints.max_wait_time_days = 0;
 cfg.constraints.max_transfer_time_days = 50;  % Departure -> Earth perigee cap [days].
 cfg.constraints.max_total_time_days = [];     % Wait + flight cap [days].
 cfg.constraints.min_earth_altitude_km = 1000; % Minimum altitude above Earth radius.
 cfg.constraints.min_moon_altitude_km = 100;   % Minimum altitude above Moon radius.
 cfg.constraints.impulse_nodes = 'all';        % 'all' or 'endpoints'; default 'all'.
 
-% With an initial epoch/phase specified, waiting is nonnegative and advances
+% With an initial epoch/phase specified, explicitly enabled waiting advances
 % td=t0+w and/or sd=mod(s0+w/T,1). A missing epoch/phase remains free. If both
 % are absent, departure epoch/phase are independent variables, waiting has
 % no earlier reference event, and total time equals flight time.
@@ -155,7 +159,7 @@ cfg.options.mesh.refinement.factor = 3;             % Finite factor >=1; local s
 %% Leg matching and patched-guess search
 
 cfg.options.patching.n_perigee = 24;             % Perigee-circle samples; default 101.
-cfg.options.patching.n_moon = 36;                % Lunar-angle samples; default 201.
+cfg.options.patching.n_moon = 36;                % Lunar angle/encounter-epoch samples; default 201.
 cfg.options.patching.start_altitude_km = 1000;   % Search starting Earth altitude [km].
 cfg.options.patching.altitude_factor = 1.1;      % Multiplicative altitude growth (>1).
 cfg.options.patching.max_altitude_trials = 8;    % Search budget; default 80 trials.
@@ -165,7 +169,25 @@ cfg.options.patching.lambert_tolerance = 1e-6;   % Tangency |v dot r|/(|v||r|), 
 cfg.options.patching.lambert_iterations = 60;    % Maximum bisection iterations.
 cfg.options.patching.max_lambert_days = 20;      % Earth-leg search horizon [days].
 cfg.options.patching.flyby_horizon_days = 5;     % Each finite-flyby integration horizon.
-% Ranking uses estimated Earth-perigee burn, not final optimized total delta-v.
+cfg.options.patching.target_iterations = 8;     % Target-epoch refinement budget; positive integer.
+% With a fixed initial phase, immediate-departure seeds use the two closest
+% database phase slices, but propagate the departure state at the exact
+% requested phase. Waiting also admits reachable database phases. With a
+% fixed initial epoch, n_moon samples the encounter-epoch window and the
+% matcher prefers lunar alignment at that epoch.
+% When both phase and epoch are known, all waiting replicas w0+k*T within
+% max_wait_time_days are considered; w0 is the first forward wait and T is
+% the orbit period. With only epoch known, that cap extends the encounter
+% window. With only phase known, only the earliest wait per database phase
+% is needed because departure epoch stays free. Time caps also screen the
+% combined wait and flight duration.
+% target_iterations defaults to 8 updates of RTH arrival geometry per leg
+% and during assembly; it is unused for ECI targets. Any remaining target
+% epoch mismatch is in seed.provenance.seed_screening.target_epoch_error_km_s.
+% Ranking prefers time-cap compliance and exact database departure phases,
+% then lunar alignment and estimated Earth burn. It does not predict optimized
+% total delta-v. If no sampled patch meets the caps, an explicitly marked over-cap
+% guess may still initialize the NLP; the physical limits remain unchanged.
 % n_perigee, n_moon and max_altitude_trials control the search cost.
 
 %% Optimization solver and evaluation route
