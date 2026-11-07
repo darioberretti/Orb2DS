@@ -38,12 +38,19 @@ Allowed blocks:
 | `target` | Prescribed outgoing Earth-relative excess velocity. |
 | `constraints` | Optional physical restrictions below. |
 | `options` | Numerical settings; omitted fields inherit library defaults. |
+| `output` | Optional saving directory, MAT filename and overwrite authorization; separate from numerical options. |
 
 `[problem, options] = orb2ds.load_case(filename)` resolves file references
 relative to that configuration, loads declared data, checks descriptors and
 completes numerical defaults. It restores the original working directory and
 does not modify the caller's workspace. Configuration code must describe the
 case without starting propagation, database generation or optimization.
+
+An optional third return value resolves `cfg.output.directory` against the
+configuration file, with defaults `Orb2DS_output`, filename `transfer_result.mat`
+and `overwrite_without_prompt=false`. Loading does not create folders, authorize
+overwriting or save anything. Calling scripts use `prepare_output` before the
+calculation and `save_output` afterward; see [saving behavior](OUTPUT.md).
 
 The same prepared structures may be constructed directly. `find_transfer`
 requires a loaded database; `optimize_transfer` does not read one. Numerical

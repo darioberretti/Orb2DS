@@ -103,7 +103,7 @@ An existing filename is reused only when orbit, model, grid and integration
 settings match. The builder raises an error for a mismatch and does not overwrite
 the file. [build_database.m](examples/build_database.m) demonstrates explicit
 generation and reuse using config_database.m and a separate archive under
-`examples/outputs/`. It also exports the orbit for transfer configurations using
+`databases/` beside that configuration. It also exports the orbit for configurations using
 `files.orbit`. The [copyable workspace](examples/workspace/README.md) connects
 generation and transfer through those explicit files.
 
@@ -132,6 +132,11 @@ end
 The compact record includes everything needed for reconstruction without the
 database. Dense samples and figures are separate transient objects and are
 never embedded in results. Save results or figures explicitly when needed.
+The workspace saves compact results to `Orb2DS_output/` beside its configuration
+by default. Choose another directory in `cfg.output.directory`; missing folders
+are created on request. `overwrite_without_prompt=false` asks before replacing
+existing results, before numerical work starts. Set it to true for authorized
+unattended replacements. See [output preparation and saving](docs/OUTPUT.md).
 
 ## Tests and scope
 

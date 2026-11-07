@@ -14,31 +14,44 @@ cfg = read_configuration(configuration_file);
 assert(~strcmpi(cfg.output.database, cfg.output.orbit), ...
     'Choose distinct database and orbit output files.');
 
-% Prepare output folders, then explicitly create or reuse the archive.
-for filename = {cfg.output.database, cfg.output.orbit}
-    folder = fileparts(filename{1});
-    if ~isfolder(folder)
-        mkdir(folder);
+% Protect the reusable orbit input before starting database generation.
+[orbit_folder, orbit_name, orbit_extension] = fileparts(cfg.output.orbit);
+orbit_destination = [];
+if isfile(cfg.output.orbit)
+    stored = load(cfg.output.orbit, 'orbit');
+    assert(isfield(stored, 'orbit') && isequaln(stored.orbit, cfg.orbit), ...
+        'Existing orbit input differs; choose another orbit output filename.');
+    if cfg.options.output.display
+        fprintf('Reusing orbit input: %s\n', cfg.output.orbit);
+    end
+else
+    orbit_destination = orb2ds.prepare_output(orbit_folder, [orbit_name, orbit_extension], ...
+        struct('display', cfg.options.output.display));
+    if isempty(orbit_destination)
+        return
     end
 end
+
+% A compatible database is reused; incompatible archives are never overwritten.
 existed = isfile(cfg.output.database);
 generation_timer = tic;
 database = orb2ds.build_orbit_moon_database(cfg.orbit, cfg.output.database, cfg.options);
 elapsed_seconds = toc(generation_timer);
-if existed
-    fprintf('Reused compatible database: %s\n', cfg.output.database);
-else
-    fprintf('Created database: %s\n', cfg.output.database);
+if cfg.options.output.display
+    if existed
+        fprintf('Reused compatible database: %s\n', cfg.output.database);
+    else
+        fprintf('Created database: %s\n', cfg.output.database);
+    end
+    fprintf('Encounters: %d; elapsed %.3f s\n', ...
+        numel(database.encounters.row_id), elapsed_seconds);
 end
-fprintf('Encounters: %d; elapsed %.3f s\n', ...
-    numel(database.encounters.row_id), elapsed_seconds);
-disp(database.generation);
 
-% Export a compact orbit input; transfer settings can refer to this MAT file.
-orbit = database.orbit;
-save(cfg.output.orbit, 'orbit');
-fprintf('Exported orbit: %s\n', cfg.output.orbit);
-% config_transfer.m reads these files to share the orbit without repeating its seed.
+% Export a new orbit input only; an identical existing descriptor stays untouched.
+if ~isempty(orbit_destination)
+    orb2ds.save_output(orbit_destination, [orbit_name, orbit_extension], ...
+        struct('orbit', database.orbit));
+end
 
 function cfg = read_configuration(configuration_file)
 %READ_CONFIGURATION Invoke the selected function without changing the caller's folder.

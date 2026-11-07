@@ -20,7 +20,7 @@ testCase.TestData.orbit = struct('schema_version', 1, ...
 end
 
 function testGenerateReuseAndMismatch(testCase)
-filename = fullfile(testCase.TestData.directory, 'encounters.mat');
+filename = fullfile(testCase.TestData.directory, 'generated', 'encounters.mat');
 options.database = struct('phases', [0, 0.25, 0.5, 0.75], ...
     'impulses_m_s', [0, 20], 'azimuths_rad', (0:3) * pi / 2, ...
     'elevations_rad', 0, 'horizon_days', 20);
@@ -80,10 +80,14 @@ verify_option_fields(testCase, cfg.options, rmfield(defaults, 'database'));
 % An unchanged copy must load the same scientific inputs outside examples.
 destination = fullfile(testCase.TestData.directory, 'config_transfer.m');
 copyfile(template, destination);
-[original, original_options] = orb2ds.load_case(template);
-[relocated, relocated_options] = orb2ds.load_case(destination);
+[original, original_options, original_output] = orb2ds.load_case(template);
+[relocated, relocated_options, relocated_output] = orb2ds.load_case(destination);
 verifyEqual(testCase, relocated, original);
 verifyEqual(testCase, relocated_options, original_options);
+verifyEqual(testCase, original_output.directory, fullfile(fileparts(template), 'Orb2DS_output'));
+verifyEqual(testCase, relocated_output.directory, fullfile(fileparts(destination), 'Orb2DS_output'));
+verifyFalse(testCase, relocated_output.overwrite_without_prompt);
+verifyFalse(testCase, isfolder(relocated_output.directory));
 verifyEqual(testCase, pwd, original_directory);
 verifyFalse(testCase, isfield(relocated.constraints, 'initial_time_days'));
 verifyFalse(testCase, isfield(relocated.constraints, 'initial_phase'));
@@ -114,8 +118,11 @@ original_directory = pwd;
 run_build_script(fullfile(workspace, 'build_database.m'));
 database_file = fullfile(workspace, 'databases', 'orbit_moon.mat');
 created = dir(database_file);
+orbit_file = fullfile(workspace, 'databases', 'orbit.mat');
+created_orbit = dir(orbit_file);
 run_build_script(fullfile(workspace, 'build_database.m'));
 verifyEqual(testCase, dir(database_file).datenum, created.datenum);
+verifyEqual(testCase, dir(orbit_file).datenum, created_orbit.datenum);
 verifyEqual(testCase, pwd, original_directory);
 
 [problem, options] = orb2ds.load_case(fullfile(workspace, 'config_transfer.m'));

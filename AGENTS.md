@@ -20,6 +20,10 @@ Use explicit units, frames, timing definitions and compact data structures.
 Results contain the data needed for reconstruction; sampled trajectories and
 figures belong to separate transient objects.
 
+Saving is explicit. Prepare and authorize destinations before numerical work,
+then save completed data in the user's project. See `docs/OUTPUT.md`; scientific
+solvers do not create result folders or request file-overwrite confirmation.
+
 Keep code short, readable and well formatted, with informative function headers
 and brief comments between meaningful stages. MATLAB example scripts begin
 with `clc; close all; clear;`, then add the library root to the path.

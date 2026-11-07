@@ -50,11 +50,11 @@ cfg.orbit.model = model;
 % build_database.m creates parent folders and exports the same orbit separately
 % for use as cfg.files.orbit in a transfer configuration.
 folder = fileparts(mfilename('fullpath'));
-cfg.output.database = fullfile(folder, 'outputs', 'orbit_moon_generated.mat');
-cfg.output.orbit = fullfile(folder, 'outputs', 'orbit.mat');
+cfg.output.database = fullfile(folder, 'databases', 'orbit_moon_generated.mat');
+cfg.output.orbit = fullfile(folder, 'databases', 'orbit.mat');
 % An existing database is reused only with the same orbit, grid and integration
 % settings. Choose another database filename after changing those inputs.
-% The standalone orbit file is exported after successful creation or reuse.
+% An identical standalone orbit is reused; choose another path if it differs.
 % Database and orbit destinations must be distinct.
 
 %% Departure sampling

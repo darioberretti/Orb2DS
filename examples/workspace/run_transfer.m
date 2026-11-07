@@ -2,25 +2,26 @@ clc; close all; clear;
 % Find a transfer, save the compact result and inspect the returned trajectory.
 % Add the Orb2DS root to MATLAB's path and run build_database.m first.
 % Edit config_transfer.m for inputs/settings. fmincon requires Optimization
-% Toolbox; IPOPT requires CasADi on the path. outputs/transfer_result.mat is
-% replaced on each completed call; sampled trajectories are never saved there.
+% Toolbox; IPOPT requires CasADi on the path. Output paths and replacement
+% permission are in config_transfer.m. Existing files are checked before
+% matching/optimization. Sampled trajectories are never saved in the result.
 
 workspace_root = fileparts(mfilename('fullpath'));
 configuration_file = fullfile(workspace_root, 'config_transfer.m');
 
-% Load the explicit orbit/database and execute the public transfer pipeline.
-[problem, options] = orb2ds.load_case(configuration_file);
+% Load inputs and authorize saving before starting numerical work.
+[problem, options, output] = orb2ds.load_case(configuration_file);
+destination = orb2ds.prepare_output(output.directory, output.filename, ...
+    struct('overwrite_without_prompt', output.overwrite_without_prompt, ...
+    'display', options.output.display));
+if isempty(destination)
+    return
+end
 result = orb2ds.find_transfer(problem, options);
 disp(result.status);
 
 % Save only the compact result, before creating separate plot samples.
-output_directory = fullfile(workspace_root, 'outputs');
-if ~isfolder(output_directory)
-    mkdir(output_directory);
-end
-output_file = fullfile(output_directory, 'transfer_result.mat');
-save(output_file, 'result');
-fprintf('Saved result: %s\n', output_file);
+orb2ds.save_output(destination, output.filename, struct('result', result));
 
 % Always inspect a returned point, including one rejected by physical checks.
 record = result.solution;

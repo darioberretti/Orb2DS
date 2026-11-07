@@ -19,7 +19,8 @@ tmp/
 cache/
 out/
 outputs/
-!examples/workspace/outputs/
+Orb2DS_output/
+databases/
 build/
 dist/
 *.log

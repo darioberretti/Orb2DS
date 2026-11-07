@@ -14,7 +14,7 @@ function cfg = config_transfer()
 %   mission defaults. Configuration does not propagate, generate data or solve.
 %
 % OUTPUT:
-%   cfg  Orbit/files, target, physical constraints and transfer numerical options.
+%   cfg  Orbit/files, target, constraints, transfer numerics and explicit saving settings.
 %
 % NOTES:
 %   Physical constraints set to [] or omitted remain free, except waiting:
@@ -296,6 +296,20 @@ cfg.options.output.plot_nlp_guess = true;      % Exact NLP initial vector, CR3BP
 % For automatic multistart n_candidates>=n_starts. The explicit step_by_step
 % script instead chooses one candidate_index and calls optimize_transfer once.
 % Dense trajectories are NEVER embedded in results, regardless of these flags.
+
+%% Explicit result-saving settings
+
+% load_case returns these as an optional THIRD output. They do not trigger
+% saving in find_transfer/optimize_transfer and are not numerical options.
+cfg.output.directory = 'Orb2DS_output';       % Relative to this file, or absolute.
+cfg.output.filename = 'transfer_result.mat'; % MAT name without directory components.
+cfg.output.overwrite_without_prompt = false; % Logical; default false.
+% Prepare output before numerical work. Missing directories are created with
+% progress messages controlled by options.output.display. Existing files
+% require one confirmation; a negative/empty answer cancels before computing.
+% In -batch mode an existing file raises an error unless the flag is true.
+% Full generation-to-saving usage is in examples/workspace/run_transfer.m.
+% Saving settings are optional; the values above are the loader defaults.
 
 %% Separate reconstruction and plotting settings for your script
 

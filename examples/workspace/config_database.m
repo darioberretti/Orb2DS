@@ -54,7 +54,7 @@ cfg.output.database = fullfile(folder, 'databases', 'orbit_moon.mat');
 cfg.output.orbit = fullfile(folder, 'databases', 'orbit.mat');
 % An existing database is reused only with the same orbit, grid and integration
 % settings. Choose another database filename after changing those inputs.
-% The standalone orbit file is exported after successful creation or reuse.
+% An identical standalone orbit is reused; choose another path if it differs.
 % Database and orbit destinations must be distinct.
 
 %% Departure sampling

@@ -86,12 +86,12 @@ magnitudes, 12 azimuths and one elevation, with a 50-day horizon. All generation
 settings remain in the config. Generic builder defaults remain 50 phases,
 10 magnitudes, 100 azimuths and an 85-day horizon.
 
-The script saves `examples/outputs/orbit_moon_generated.mat` and exports the
-same orbit to `examples/outputs/orbit.mat`, outside version control.
+The script saves `databases/orbit_moon_generated.mat` and exports the
+same orbit to `databases/orbit.mat` beside its configuration, outside version control.
 On a second run the builder checks the same orbit, grid and integration settings
 and reuses the file. With different settings it raises an error; choose a new
-output filename explicitly. The standalone orbit MAT is exported again after
-successful generation or reuse. The packaged `data/orbit_moon_example.mat` is
+output filename explicitly. An identical standalone orbit MAT is reused without
+rewriting; another descriptor requires another filename. The packaged `data/orbit_moon_example.mat` is
 not the generation destination.
 
 To use the generated catalogue in a transfer, set `cfg.files.database` in your
@@ -100,6 +100,20 @@ your config. Set `cfg.files.orbit` to the exported orbit MAT and remove the
 inline `cfg.orbit`; only one orbit input is allowed. The workspace already
 uses this arrangement. If already loaded, assign `problem.database = database`
 directly instead.
+
+## Saving results in a user project
+
+Copy workspace/ outside the library installation before using its saving script.
+Its transfer configuration has a separate `cfg.output` block: directory
+`Orb2DS_output` relative to that file, filename `transfer_result.mat`, and
+`overwrite_without_prompt=false`. `options.output` still controls messages and
+initial-guess plots; it does not select output files.
+
+The script calls `prepare_output` before matching/optimization, creates missing
+folders, and asks once about existing files. Declining stops the script. Batch
+execution requires the overwrite flag to be true for an existing file. The
+final `save_output` retains the old result until the new MAT write completes.
+See [output preparation and saving](../docs/OUTPUT.md) for the direct API.
 
 ## Reading step_by_step.m
 

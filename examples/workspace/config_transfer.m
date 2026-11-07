@@ -11,7 +11,7 @@ function cfg = config_transfer()
 %   transfer options, see examples/config_transfer.m in the Orb2DS installation.
 %
 % OUTPUT:
-%   cfg  Orbit/database references, target, constraints and selected numerics.
+%   cfg  Orbit/database references, target, constraints, selected numerics and saving settings.
 
 %% Inputs exported by build_database.m
 
@@ -46,4 +46,13 @@ cfg.options.solver.display = 'iter';
 cfg.options.output.display = true;
 cfg.options.output.plot_initial_guess = true;
 cfg.options.output.plot_nlp_guess = true;
+
+%% Explicit result saving, separate from numerical options
+
+% Relative to THIS configuration; the folder is created when saving is prepared.
+cfg.output.directory = 'Orb2DS_output';
+cfg.output.filename = 'transfer_result.mat';
+cfg.output.overwrite_without_prompt = false; % Ask before replacing an existing result.
+% Set true for authorized unattended replacements. With false, batch execution
+% raises an error on an existing file instead of waiting for a response.
 end

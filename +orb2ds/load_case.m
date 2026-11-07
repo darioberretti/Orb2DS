@@ -1,8 +1,9 @@
-function [problem, options] = load_case(filename)
+function [problem, options, output] = load_case(filename)
 %LOAD_CASE Prepare scientific inputs and numerical options from one case file.
 %
 % PROTOTYPE:
 %   [problem, options] = orb2ds.load_case(filename)
+%   [problem, options, output] = orb2ds.load_case(filename)
 %
 % DESCRIPTION:
 %   Invoke a MATLAB configuration function returning cfg. Resolve data paths
@@ -13,11 +14,15 @@ function [problem, options] = load_case(filename)
 %
 % INPUT:
 %   filename  Path to a configuration .m function returning cfg with orbit
-%             or files.orbit, target, optional constraints/options and
-%             optional files.database. See docs/CONTRACTS.md.
+%             or files.orbit, target, optional constraints/options/output
+%             blocks and optional files.database. See docs/CONTRACTS.md.
 % OUTPUT:
 %   problem   In-memory orbit, target, constraints and optional database.
 %   options   Complete numerical options, ready for independent stage calls.
+%   output    Optional saving settings: directory, filename and
+%             overwrite_without_prompt. Relative directories resolve against
+%             the configuration; default is Orb2DS_output beside that file.
+%             No folder is created and no saving is authorized by load_case.
 
 filename = char(filename);
 [folder, name, extension] = fileparts(filename);
@@ -37,7 +42,7 @@ cd(folder);
 cfg = feval(name);
 clear restore_directory
 
-allowed = {'orbit', 'files', 'target', 'constraints', 'options'};
+allowed = {'orbit', 'files', 'target', 'constraints', 'options', 'output'};
 assert(isstruct(cfg) && isscalar(cfg), 'orb2ds:Case', 'The configuration must return cfg.');
 unknown = setdiff(fieldnames(cfg), allowed);
 assert(isempty(unknown), 'orb2ds:UnknownField', 'Unknown case block: %s.', strjoin(unknown, ', '));
@@ -66,6 +71,28 @@ if isfield(cfg, 'options')
     supplied = cfg.options;
 end
 options = orb2ds.internal.options(supplied);
+output = struct('directory', 'Orb2DS_output', 'filename', 'transfer_result.mat', ...
+    'overwrite_without_prompt', false);
+if isfield(cfg, 'output')
+    output = orb2ds.internal.merge_options(output, cfg.output, 'output');
+end
+validateattributes(output.overwrite_without_prompt, {'logical'}, {'scalar'});
+assert((ischar(output.directory) && isrow(output.directory)) || ...
+    (isstring(output.directory) && isscalar(output.directory) && strlength(output.directory) > 0), ...
+    'orb2ds:OutputPath', 'Specify a nonempty output directory.');
+output.directory = char(output.directory);
+if ~startsWith(output.directory, filesep) && ...
+        isempty(regexp(output.directory, '^[A-Za-z]:[\\/]', 'once'))
+    output.directory = fullfile(folder, output.directory);
+end
+assert((ischar(output.filename) && isrow(output.filename)) || ...
+    (isstring(output.filename) && isscalar(output.filename) && strlength(output.filename) > 0), ...
+    'orb2ds:OutputPath', 'Specify a nonempty output filename.');
+output.filename = char(output.filename);
+[parent, base, extension] = fileparts(output.filename);
+assert(isempty(parent) && ~isempty(base) && strcmpi(extension, '.mat') && ...
+    ~any(ismember(output.filename, '*?')), ...
+    'orb2ds:OutputPath', 'The result filename must be a .mat name without a directory.');
 if isfield(cfg.files, 'database')
     problem.database = orb2ds.load_orbit_moon_database( ...
         resolve_file(folder, cfg.files.database));

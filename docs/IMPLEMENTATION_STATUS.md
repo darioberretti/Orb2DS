@@ -9,6 +9,8 @@ MATLAB path. Complete copyable configurations are
 ## Transfer workflow
 
 - Prepare orbit, target, constraints and numerical settings with `load_case`.
+- Prepare and authorize explicit saves with `prepare_output`; write selected
+  compact MAT variables with `save_output`. See [output behavior](OUTPUT.md).
 - Match orbit-Moon encounters and target-dependent Earth legs with `find_legs`.
 - Assemble a finite lunar passage and physical arc recipes with `assemble_transfer`.
 - Create a shooting mesh with `mesh_transfer`, using a global maximum step and

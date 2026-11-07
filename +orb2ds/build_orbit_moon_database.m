@@ -15,7 +15,7 @@ function database = build_orbit_moon_database(orbit, filename, supplied)
 %
 % INPUT:
 %   orbit     Complete physical orbit descriptor.
-%   filename  Explicit MAT destination, in an existing directory.
+%   filename  Explicit MAT destination; missing parent directories are created.
 %   options   Optional numerical settings; database block defines the grid.
 % OUTPUT:
 %   database  Canonical compact encounter database, also saved to filename.
@@ -32,6 +32,14 @@ if isfile(filename)
     assert(isequaln(database.generation, generation), 'orb2ds:DatabaseSettings', ...
         'Existing database grid or integration settings differ; choose a new filename.');
     return
+end
+folder = fileparts(filename);
+if ~isempty(folder) && ~isfolder(folder)
+    [ok, message] = mkdir(folder);
+    assert(ok, 'orb2ds:OutputDirectory', 'Cannot create database directory: %s', message);
+    if options.output.display
+        fprintf('Created database directory: %s\n', folder);
+    end
 end
 model = orbit.model;
 grid = options.database;
@@ -107,6 +115,8 @@ database.generation = generation;
 database.provenance = struct('library_version', '0.1.0-dev', ...
     'algorithm', 'phase/impulse grid, spatial Earth-Moon CR3BP');
 database = orb2ds.internal.check_database(database);
+assert(~isfile(filename), 'orb2ds:DatabaseExists', ...
+    'A database appeared during generation; it will not be replaced: %s.', filename);
 save(filename, 'database', '-v7.3');
 end
 
