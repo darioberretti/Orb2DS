@@ -1,20 +1,20 @@
-function cfg = config_example()
-%CONFIG_EXAMPLE Complete, copyable configuration reference for orb2ds.
+function cfg = config_transfer()
+%CONFIG_TRANSFER Complete, copyable transfer configuration for orb2ds.
 %
 % PROTOTYPE:
-%   cfg = config_example()
-%   [problem, options] = orb2ds.load_case('path/to/config_example.m')
+%   cfg = config_transfer()
+%   [problem, options] = orb2ds.load_case('path/to/config_transfer.m')
 %
 % DESCRIPTION:
 %   Copy this file anywhere and edit it for your own scripts. If renaming the
 %   file, rename this function too. Add Orb2DS to MATLAB's path first.
-%   Every supported configuration field is shown below, with units and
+%   Every supported transfer configuration field is shown below, with units and
 %   interactions. Mutually exclusive alternatives are commented out. Active
 %   values retain the runnable reduced Venus example; they are not universal
 %   mission defaults. Configuration does not propagate, generate data or solve.
 %
 % OUTPUT:
-%   cfg  Orbit/files, target, physical constraints and all numerical options.
+%   cfg  Orbit/files, target, physical constraints and transfer numerical options.
 %
 % NOTES:
 %   Physical constraints set to [] or omitted remain free, except waiting:
@@ -192,8 +192,8 @@ cfg.options.patching.target_iterations = 8;     % Target-epoch refinement budget
 
 %% Optimization solver and evaluation route
 
-cfg.options.solver.name = 'fmincon';                % 'fmincon' or 'ipopt'.
-cfg.options.solver.evaluation = 'matlab';           % 'matlab' or 'casadi'.
+cfg.options.solver.name = 'ipopt';                % 'fmincon' or 'ipopt'.
+cfg.options.solver.evaluation = 'casadi';           % 'matlab' or 'casadi'.
 % Supported pairs: fmincon/matlab, ipopt/matlab, ipopt/casadi. Both IPOPT
 % routes require CasADi with its IPOPT plugin on the MATLAB path. Install it
 % separately and addpath its root in your script, before calling the solver.
@@ -296,20 +296,6 @@ cfg.options.output.plot_nlp_guess = true;      % Exact NLP initial vector, CR3BP
 % For automatic multistart n_candidates>=n_starts. The explicit step_by_step
 % script instead chooses one candidate_index and calls optimize_transfer once.
 % Dense trajectories are NEVER embedded in results, regardless of these flags.
-
-%% Explicit database-generation grid
-
-% Used ONLY by build_orbit_moon_database, not find_transfer/load_case.
-% Small runnable grid: 12 phases x 5 magnitudes x 12 azimuths = 720 departures.
-% Sampling matches the packaged example; integration uses the current options
-% above, so the generated file is not claimed to be byte-identical to it.
-cfg.options.database.phases = (0:11) / 12;           % Normalized phases; default (0:49)/50.
-cfg.options.database.impulses_m_s = [0, 10, 20, 30, 50]; % Magnitudes [m/s]; default 10 values.
-cfg.options.database.azimuths_rad = (0:11) * 2 * pi / 12; % XY azimuths [rad]; default 100 values.
-cfg.options.database.elevations_rad = 0;             % Out-of-plane elevations [rad].
-cfg.options.database.horizon_days = 50;              % Forward horizon [days]; default 85.
-% Reusing an existing archive requires matching orbit, grid and integration
-% settings. A mismatched existing filename raises an error; it is not replaced.
 
 %% Separate reconstruction and plotting settings for your script
 

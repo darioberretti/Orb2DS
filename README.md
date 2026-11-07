@@ -11,7 +11,7 @@ Add the repository root, which contains `+orb2ds`, to MATLAB's path:
 ```matlab
 addpath('C:\path\to\Orb2DS');
 [problem, options] = orb2ds.load_case( ...
-    'C:\path\to\Orb2DS\examples\config_example.m');
+    'C:\path\to\Orb2DS\examples\config_transfer.m');
 result = orb2ds.find_transfer(problem, options);
 ```
 
@@ -31,11 +31,16 @@ The examples include:
   changed target.
 - [build_database.m](examples/build_database.m): generate or reuse a saved
   orbit-Moon catalogue.
+- [workspace/](examples/workspace/README.md): copyable user project with separate
+  database/transfer configurations, generation and execution scripts, and data/output folders.
 
 ## Configuration
 
-Copy [config_example.m](examples/config_example.m) anywhere and edit it for your
-scripts. It lists every supported input and numerical setting, including units,
+Copy [config_database.m](examples/config_database.m) for catalogue generation or
+[config_transfer.m](examples/config_transfer.m) for a transfer. The first defines
+the orbit, generation grid, accuracy and output paths; the second consumes a
+database and defines the target, physical constraints and transfer numerics.
+Together they list supported inputs and settings, including units,
 allowed values, defaults and interactions. Relative file paths are resolved
 against that configuration file. Rename its function if you rename the file.
 
@@ -86,7 +91,7 @@ database. Each call validates the result against the current problem.
 ## Reusable database
 
 The bundled catalogue contains 720 sampled impulsive departures and 1,986 lunar
-entries for the orbit in `config_example.m`. Generate a catalogue for another
+entries for the orbit in `config_transfer.m`. Generate a catalogue for another
 orbit or sampling grid with:
 
 ```matlab
@@ -97,7 +102,10 @@ problem.database = database;
 An existing filename is reused only when orbit, model, grid and integration
 settings match. The builder raises an error for a mismatch and does not overwrite
 the file. [build_database.m](examples/build_database.m) demonstrates explicit
-generation and reuse using a separate file under `outputs/`.
+generation and reuse using config_database.m and a separate archive under
+`examples/outputs/`. It also exports the orbit for transfer configurations using
+`files.orbit`. The [copyable workspace](examples/workspace/README.md) connects
+generation and transfer through those explicit files.
 
 ## Results and reconstruction
 

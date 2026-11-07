@@ -34,7 +34,7 @@ and database generation do not require either optimizer.
 ```matlab
 addpath('C:\path\to\Orb2DS');
 addpath('C:\path\to\casadi');
-[problem, options] = orb2ds.load_case('C:\path\to\config_example.m');
+[problem, options] = orb2ds.load_case('C:\path\to\config_transfer.m');
 options.solver.name = 'ipopt';
 options.solver.evaluation = 'casadi';
 result = orb2ds.find_transfer(problem, options);

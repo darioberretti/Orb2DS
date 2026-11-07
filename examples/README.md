@@ -1,8 +1,9 @@
 # Examples
 
-Add the library root to MATLAB's path. Each demonstration also resolves that
-root from its own location. fmincon requires Optimization Toolbox; IPOPT requires
-a separately installed CasADi MATLAB interface with its IPOPT plugin.
+Add the library root to MATLAB's path. The four scripts directly in this folder
+also resolve that root from their own location. fmincon requires Optimization
+Toolbox; IPOPT requires a separately installed CasADi MATLAB interface with its
+IPOPT plugin.
 
 1. Run `basic_usage.m` for the complete method, physical result inspection and
    separately reconstructed plot.
@@ -11,14 +12,24 @@ a separately installed CasADi MATLAB interface with its IPOPT plugin.
 4. Run `build_database.m` to explicitly generate and save a reusable catalogue,
    or reuse its existing compatible archive. This requires only base MATLAB.
 
-The scripts are independent usage demonstrations. The complete configuration
-reference is [config_example.m](config_example.m), directly in this folder.
-It lists every supported input and numerical option, with units, interactions
-and commented mutually exclusive alternatives. Copy it wherever convenient,
-edit its inputs and file references, then call it from your own script:
+The scripts are independent usage demonstrations. Two separate configuration
+references list inputs, units, defaults and alternatives:
+
+- [config_database.m](config_database.m): orbit, generation grid, integration,
+  closure checks, progress and database/orbit output paths.
+- [config_transfer.m](config_transfer.m): orbit/database inputs, target, physical
+  constraints, matching, mesh, integration, optimization and validation.
+
+For a ready-to-copy project containing both configurations and its own generated
+data folders, use [workspace/](workspace/README.md). It can live outside Orb2DS
+and calls only the installed library. It defines the orbit once, in the database
+configuration, and shares its exported descriptor with the transfer configuration.
+
+Copy the full transfer reference wherever convenient, edit its inputs and file
+references, then call it from your own script:
 
 ```matlab
-[problem, options] = orb2ds.load_case('C:\my_project\config_example.m');
+[problem, options] = orb2ds.load_case('C:\my_project\config_transfer.m');
 result = orb2ds.find_transfer(problem, options);
 ```
 
@@ -33,8 +44,8 @@ five impulse magnitudes, 12 in-plane directions and a 50-day generation horizon.
 Those are search/data-generation bounds; only `problem.constraints` limits the
 optimized physical transfer. Initial epoch and phase are free in the example.
 
-All numerical fields are explicit in the template; you may remove any you want
-to inherit from `+orb2ds/+defaults/numerical_options.m`. Empty physical constraints
+All numerical fields used for transfers are explicit in their template; remove
+any to inherit from `+orb2ds/+defaults/numerical_options.m`. Empty physical constraints
 remain free except `max_wait_time_days`: omitted, [] or 0 disables waiting;
 a positive finite value enables it up to that limit. Numerical [] is invalid
 except for optional solver constraint tolerances, which inherit validation
@@ -48,9 +59,10 @@ status, multiple-shooting feasibility and independently chained closure must be
 read separately; a best validated candidate need not have optimizer convergence
 or be the global optimum. See `../docs/VALIDATION.md` for measured results.
 
-Nothing saves transfer results or figures automatically. Save `result` or its
-self-contained `solution` explicitly if needed. Dense trajectory samples are
-returned only by `reconstruct_trajectory` and never inserted into a result.
+The three transfer demonstrations directly in examples/ do not save results or
+figures. The workspace's run_transfer.m explicitly saves its compact result.
+Dense trajectory samples are returned only by `reconstruct_trajectory` and never
+inserted into a result.
 
 ## Validation and solver constraint tolerances
 
@@ -64,25 +76,30 @@ flag is needed. `result.validation.tolerances` reports acceptance thresholds;
 
 ## Creating a database
 
-Run `build_database.m`. It reads the inline orbit or `files.orbit` MAT input
-and numerical options from `config_example.m`, without loading `files.database`.
-The target and transfer constraints are not used to generate encounters.
+Run `build_database.m`. It reads `config_database.m` and calls
+`orb2ds.build_orbit_moon_database(cfg.orbit, cfg.output.database, cfg.options)`.
+The transfer configuration is not read. You can replace the inline orbit in
+the database configuration with a descriptor loaded explicitly from your MAT.
 
 The configuration provides a small explicit grid of 12 phases, five impulse
 magnitudes, 12 azimuths and one elevation, with a 50-day horizon. All generation
 settings remain in the config. Generic builder defaults remain 50 phases,
 10 magnitudes, 100 azimuths and an 85-day horizon.
 
-The script saves `outputs/orbit_moon_generated.mat`, outside version control.
+The script saves `examples/outputs/orbit_moon_generated.mat` and exports the
+same orbit to `examples/outputs/orbit.mat`, outside version control.
 On a second run the builder checks the same orbit, grid and integration settings
 and reuses the file. With different settings it raises an error; choose a new
-output filename explicitly. The packaged `data/orbit_moon_example.mat` is never
-overwritten. Its stored integration tolerances differ from the current config,
-so the newly generated archive need not match it byte for byte.
+output filename explicitly. The standalone orbit MAT is exported again after
+successful generation or reuse. The packaged `data/orbit_moon_example.mat` is
+not the generation destination.
 
 To use the generated catalogue in a transfer, set `cfg.files.database` in your
-configuration to that archive's absolute path, or a path relative to your config.
-If already loaded, assign `problem.database = database` directly instead.
+transfer configuration to that archive's absolute path, or a path relative to
+your config. Set `cfg.files.orbit` to the exported orbit MAT and remove the
+inline `cfg.orbit`; only one orbit input is allowed. The workspace already
+uses this arrangement. If already loaded, assign `problem.database = database`
+directly instead.
 
 ## Reading step_by_step.m
 
@@ -164,7 +181,7 @@ See MathWorks' [iteration table definitions](https://www.mathworks.com/help/opti
 
 ## Choosing the optimizer
 
-The complete settings are in `config_example.m`. Keep `solver.name='fmincon'`
+The complete settings are in `config_transfer.m`. Keep `solver.name='fmincon'`
 and choose `solver.fmincon.algorithm` for another MATLAB algorithm. To use IPOPT,
 first add your installed CasADi directory to the path in your calling script:
 

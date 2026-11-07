@@ -15,10 +15,18 @@ expressed in these axes explicitly.
 
 A configuration `.m` function returns one plain `cfg` structure.
 
-`examples/config_example.m` is the complete annotated template. Copy it to any
+`examples/config_transfer.m` is the complete annotated transfer template. Copy it to any
 directory; rename its function when renaming the file. Every supported
-numerical leaf is explicit there; remove a leaf to
+numerical leaf used for transfers is explicit there; remove a leaf to
 inherit the library default. Exclusive orbit/target alternatives are commented.
+
+Database generation uses the separate `examples/config_database.m`. That
+example returns `cfg.orbit`, `cfg.output.database`, `cfg.output.orbit` and the
+numerical settings consumed by the builder. Its script passes the orbit and
+options directly to `build_orbit_moon_database`, then exports the orbit MAT.
+The generation configuration is not an input to `load_case` and requires no
+transfer target. `examples/workspace/` demonstrates both configurations in a
+standalone project, sharing the orbit through the exported file.
 
 Allowed blocks:
 

@@ -7,7 +7,7 @@ clc; close all; clear;
 % path. No results or figures are saved automatically.
 
 library_root = fileparts(fileparts(mfilename('fullpath')));
-case_file = fullfile(library_root, 'examples', 'config_example.m');
+case_file = fullfile(library_root, 'examples', 'config_transfer.m');
 candidate_index = 1;  % Rank in the returned matches, not a database row.
 plot_settings = struct('frame', 'rotating', 'view', [0, 90], ...
     'show_nodes', true, 'show_impulses', true, 'impulse_scale', 0.38, 'show_defects', true);

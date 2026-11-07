@@ -3,7 +3,7 @@ clc; close all; clear;
 % A previous result.solution can be supplied in place of seed as well.
 
 library_root = fileparts(fileparts(mfilename('fullpath')));
-case_file = fullfile(library_root, 'examples', 'config_example.m');
+case_file = fullfile(library_root, 'examples', 'config_transfer.m');
 target_change_km_s = [0.02; 0; 0];
 addpath(library_root);
 

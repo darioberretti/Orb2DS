@@ -19,6 +19,7 @@ tmp/
 cache/
 out/
 outputs/
+!examples/workspace/outputs/
 build/
 dist/
 *.log

@@ -8,7 +8,7 @@ root = fileparts(fileparts(mfilename('fullpath')));
 old_path = path;
 addpath(root);
 testCase.TestData.cleanup = onCleanup(@() path(old_path));
-[problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_example.m'));
+[problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_transfer.m'));
 defaults = orb2ds.defaults.numerical_options();
 options.solver = defaults.solver;
 options.output = defaults.output;

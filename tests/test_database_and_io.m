@@ -68,16 +68,17 @@ end
 
 function testCompletePortableConfiguration(testCase)
 root = fileparts(fileparts(mfilename('fullpath')));
-template = fullfile(root, 'examples', 'config_example.m');
+template = fullfile(root, 'examples', 'config_transfer.m');
 original_directory = pwd;
 restore = onCleanup(@() cd(original_directory));
 cd(fileparts(template));
-cfg = config_example();
+cfg = config_transfer();
 cd(original_directory);
-verify_option_fields(testCase, cfg.options, orb2ds.defaults.numerical_options());
+defaults = orb2ds.defaults.numerical_options();
+verify_option_fields(testCase, cfg.options, rmfield(defaults, 'database'));
 
 % An unchanged copy must load the same scientific inputs outside examples.
-destination = fullfile(testCase.TestData.directory, 'config_example.m');
+destination = fullfile(testCase.TestData.directory, 'config_transfer.m');
 copyfile(template, destination);
 [original, original_options] = orb2ds.load_case(template);
 [relocated, relocated_options] = orb2ds.load_case(destination);
@@ -89,6 +90,44 @@ verifyFalse(testCase, isfield(relocated.constraints, 'initial_phase'));
 verifyFalse(testCase, isfield(relocated.constraints, 'final_time_days'));
 verifyEqual(testCase, relocated.constraints.max_wait_time_days, 0);
 verifyEqual(testCase, numel(relocated.database.encounters.row_id), 1986);
+end
+
+function testCopiedWorkspaceBuildReuseAndLoad(testCase)
+root = fileparts(fileparts(mfilename('fullpath')));
+workspace = fullfile(testCase.TestData.directory, 'workspace');
+copyfile(fullfile(root, 'examples', 'workspace'), workspace);
+
+% Keep the real copied workflow fast with a small generation grid.
+configuration = fullfile(workspace, 'config_database.m');
+text = fileread(configuration);
+text = replace(text, '(0:11) / 12', '[0, 0.25, 0.5, 0.75]');
+text = replace(text, '[0, 10, 20, 30, 50]', '[0, 20]');
+text = replace(text, '(0:11) * 2*pi/12', '(0:3) * pi/2');
+text = replace(text, 'horizon_days = 50', 'horizon_days = 20');
+text = replace(text, 'display = true', 'display = false');
+file = fopen(configuration, 'w');
+fprintf(file, '%s', text);
+fclose(file);
+
+% Execute as a user would from an unrelated current folder, then reuse it.
+original_directory = pwd;
+run_build_script(fullfile(workspace, 'build_database.m'));
+database_file = fullfile(workspace, 'databases', 'orbit_moon.mat');
+created = dir(database_file);
+run_build_script(fullfile(workspace, 'build_database.m'));
+verifyEqual(testCase, dir(database_file).datenum, created.datenum);
+verifyEqual(testCase, pwd, original_directory);
+
+[problem, options] = orb2ds.load_case(fullfile(workspace, 'config_transfer.m'));
+verifyEqual(testCase, problem.orbit, problem.database.orbit);
+verifyGreaterThan(testCase, numel(problem.database.encounters.row_id), 0);
+verifyEqual(testCase, options.solver.name, 'fmincon');
+verifyEqual(testCase, problem.constraints.max_wait_time_days, 0);
+end
+
+function run_build_script(filename)
+%RUN_BUILD_SCRIPT Isolate the example's clear statement from the test caller.
+run(filename);
 end
 
 function verify_option_fields(testCase, configured, defaults)

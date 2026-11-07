@@ -139,7 +139,7 @@ cfg.options.output.plot_initial_guess = true;
 cfg.options.output.plot_nlp_guess = true;
 ```
 
-Both flags default to false in the library; `config_example.m` enables both.
+Both flags default to false in the library; `config_transfer.m` enables both.
 They are independent of library/solver verbosity. `find_transfer` displays
 both views for every attempted start. `build_initial_guess` honors the
 assembled-view flag; `optimize_transfer` honors the NLP-view flag. The atomic

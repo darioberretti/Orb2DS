@@ -8,7 +8,7 @@ root = fileparts(fileparts(mfilename('fullpath')));
 old_path = path;
 cleanup = onCleanup(@() path(old_path));
 addpath(root);
-[problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_example.m'));
+[problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_transfer.m'));
 % Solver controls are fixed for this regression, independent of user edits
 % to the copyable example's selected optimizer, tolerances and plot flags.
 defaults = orb2ds.defaults.numerical_options();

@@ -1,8 +1,10 @@
 # Supported functionality
 
 The MATLAB namespace `orb2ds` is installed by adding the repository root to the
-MATLAB path. The complete copyable configuration is
-[`examples/config_example.m`](../examples/config_example.m).
+MATLAB path. Complete copyable configurations are
+[`examples/config_database.m`](../examples/config_database.m) for generation and
+[`examples/config_transfer.m`](../examples/config_transfer.m) for transfers.
+[`examples/workspace/`](../examples/workspace/README.md) is a standalone user-project template.
 
 ## Transfer workflow
 

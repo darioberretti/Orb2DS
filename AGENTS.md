@@ -7,7 +7,9 @@ through lunar encounters to prescribed outgoing Earth excess velocities.
 
 The repository root contains `+orb2ds`, `examples`, `tests`, `docs` and `data`.
 Add only the root to MATLAB's path. Use `README.md` for setup,
-`examples/config_example.m` for the complete configuration, and
+`examples/config_database.m` and `examples/config_transfer.m` for the separate
+generation and transfer configurations, `examples/workspace` for a copyable
+user project, and
 `docs/CONTRACTS.md` for input/output structures. Numerical defaults are in
 `+orb2ds/+defaults/numerical_options.m`.
 

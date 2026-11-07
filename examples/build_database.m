@@ -1,61 +1,52 @@
 clc; close all; clear;
 % Build a reusable orbit-Moon catalogue, or load the same compatible archive.
-% Edit the orbit and options.database grid in config_example.m. This example
-% reads configuration directly, without loading cfg.files.database or using
-% the transfer target. Base MATLAB is sufficient; no optimization is run.
-% The generated MAT file is saved explicitly under ignored outputs/.
-% Re-running reuses it only with the same orbit, grid and integration options.
-% After changing those settings, choose a different output filename.
+% Edit config_database.m to choose the orbit, sampling and output files.
+% Base MATLAB is sufficient. Re-running reuses a compatible database and
+% exports its orbit descriptor for a separate transfer configuration.
+% Generated files go to outputs/; choose another database filename after
+% changing orbit, grid or integration settings.
 
 library_root = fileparts(fileparts(mfilename('fullpath')));
-configuration_file = fullfile(library_root, 'examples', 'config_example.m');
-output_file = fullfile(library_root, 'outputs', 'orbit_moon_generated.mat');
+configuration_file = fullfile(library_root, 'examples', 'config_database.m');
 addpath(library_root);
 
-% Read the declared orbit only; a database file need not exist yet.
-[orbit, options] = load_generation_inputs(configuration_file);
+% Read generation settings without loading a transfer or an existing database.
+cfg = read_configuration(configuration_file);
+assert(~strcmpi(cfg.output.database, cfg.output.orbit), ...
+    'Choose distinct database and orbit output files.');
 
-% Prepare the destination and explicitly create or reuse the archive.
-output_directory = fileparts(output_file);
-if ~isfolder(output_directory)
-    mkdir(output_directory);
+% Prepare output folders, then explicitly create or reuse the archive.
+for filename = {cfg.output.database, cfg.output.orbit}
+    folder = fileparts(filename{1});
+    if ~isfolder(folder)
+        mkdir(folder);
+    end
 end
-existed = isfile(output_file);
+existed = isfile(cfg.output.database);
 generation_timer = tic;
-database = orb2ds.build_orbit_moon_database(orbit, output_file, options);
+database = orb2ds.build_orbit_moon_database(cfg.orbit, cfg.output.database, cfg.options);
 elapsed_seconds = toc(generation_timer);
 if existed
-    fprintf('Reused compatible database: %s\n', output_file);
+    fprintf('Reused compatible database: %s\n', cfg.output.database);
 else
-    fprintf('Created database: %s\n', output_file);
+    fprintf('Created database: %s\n', cfg.output.database);
 end
 fprintf('Encounters: %d; elapsed %.3f s\n', ...
     numel(database.encounters.row_id), elapsed_seconds);
 disp(database.generation);
 
-% Use this archive in a transfer by setting cfg.files.database = output_file
-% in your configuration, or assign problem.database = database in your script.
+% Export a compact orbit input; transfer settings can refer to this MAT file.
+orbit = database.orbit;
+save(cfg.output.orbit, 'orbit');
+fprintf('Exported orbit: %s\n', cfg.output.orbit);
+% Set cfg.files.database and cfg.files.orbit in config_transfer.m to these files,
+% removing its inline cfg.orbit when selecting the orbit-file alternative.
 
-function [orbit, options] = load_generation_inputs(configuration_file)
-%LOAD_GENERATION_INPUTS Read orbit/options without loading a transfer database.
-%   Relative orbit files resolve against the config directory. Function scope
-%   restores the caller's directory on success and on configuration errors.
+function cfg = read_configuration(configuration_file)
+%READ_CONFIGURATION Invoke the selected function without changing the caller's folder.
 [configuration_directory, configuration_name] = fileparts(configuration_file);
 original_directory = pwd;
 restore_directory = onCleanup(@() cd(original_directory));
 cd(configuration_directory);
 cfg = feval(configuration_name);
-has_inline = isfield(cfg, 'orbit');
-has_file = isfield(cfg, 'files') && isfield(cfg.files, 'orbit');
-assert(xor(has_inline, has_file), 'Specify exactly one of cfg.orbit and cfg.files.orbit.');
-if has_inline
-    orbit = cfg.orbit;
-else
-    orbit_data = load(cfg.files.orbit, 'orbit');
-    orbit = orbit_data.orbit;
-end
-options = struct();
-if isfield(cfg, 'options')
-    options = cfg.options;
-end
 end
