@@ -18,7 +18,6 @@ if isempty(destination)
     return
 end
 result = orb2ds.find_transfer(problem, options);
-disp(result.status);
 
 % Save only the compact result, before creating separate plot samples.
 orb2ds.save_output(destination, output.filename, struct('result', result));
@@ -31,9 +30,6 @@ if isempty(record)
     plot_label = 'Unvalidated optimization candidate';
 end
 if ~isempty(record)
-    disp(record.metrics);
-    disp(result.validation.checks);
-    disp(result.validation.chained);
     trajectory = orb2ds.reconstruct_trajectory(record);
     transfer_figure = orb2ds.plot_trajectory(trajectory, struct('show_defects', true));
     transfer_figure.Name = plot_label;

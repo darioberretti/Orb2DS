@@ -70,6 +70,10 @@ solver output. `output.plot_initial_guess` and `output.plot_nlp_guess` select
 physical-leg and shooting-node previews independently. Final plots in the basic
 and step-by-step examples explicitly label an unvalidated candidate.
 See the [examples guide](examples/README.md) for the individual script stages.
+Console sections separate solver termination, physical acceptance and returned
+data. Use `orb2ds.node_table(result)` for all node impulses in m/s and
+`orb2ds.print_result(result)` to inspect stored validation again. See
+[console output and inspection](docs/LOGGING.md).
 
 ## Direct scientific stages
 
@@ -109,8 +113,12 @@ generation and transfer through those explicit files.
 
 ## Results and reconstruction
 
-`result.solution` contains the lowest-cost record passing local and chained physical checks;
-if none passes, `result.candidate` can contain the rejected final record.
+`options.validation.require_pass` defaults to `false`. This prioritizes
+convergent delta-v solves and compares their costs. Set it to `true` to select
+the lowest-cost physically validated point. A selected point passing local and
+chained checks is stored in `result.solution`. A selected point outside the
+criteria is stored in `result.candidate`. Both carry full diagnostics in
+`result.validation`.
 Inspect `result.status`, `result.validation.checks`, solver stopping information
 and `result.validation.chained` separately. Chained propagation applies every
 burn continuously without resets to stored nodes; it has its own feasibility

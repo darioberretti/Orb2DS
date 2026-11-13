@@ -49,6 +49,10 @@ end
 timer = tic;
 solver = casadi.nlpsol(['orb2ds_', stage], 'ipopt', definition, settings);
 build_seconds = toc(timer);
+if nlp.options.output.display && (strcmp(stage, 'feasibility') || ~options.run_feasibility)
+    orb2ds.internal.print_constraint_tolerances(nlp, settings.ipopt.constr_viol_tol, ...
+        'constr_viol_tol', 'absolute');
+end
 timer = tic;
 solution = solver('x0', initial, 'lbx', nlp.lower, 'ubx', nlp.upper, ...
     'lbg', graph.lower, 'ubg', graph.upper);
@@ -88,7 +92,10 @@ if isfield(stats, 'iterations')
     end
 end
 if strcmp(options.display, 'final')
-    fprintf('IPOPT %s: %s; %d iterations\n', stage, status, stats.iter_count);
+    fprintf('\n[IPOPT] Solver status\n\n');
+    fprintf('  Stage                          : %s\n', stage);
+    fprintf('  Native status                  : %s\n', status);
+    fprintf('  Iterations                     : %d\n', stats.iter_count);
 end
 best_feasible = [];
 end

@@ -84,12 +84,14 @@ for iteration = 1:options.patching.target_iterations
     candidate.moon_earth = earth;
 end
 if options.output.display
-    fprintf('orb2ds guess: phase %.9g, departure %.9g days, wait %.6g days\n', ...
-        timing.phase, timing.departure_days, timing.wait_days);
-    fprintf('  Flight %.6g days; total %.6g days; time-cap excess %.6g days\n', ...
-        timing.transfer_days, timing.total_days, timing.time_excess_days);
-    fprintf('  Lunar epoch alignment error %.6g rad (patched guess, before optimization)\n', ...
-        timing.moon_phase_mismatch_rad);
+    fprintf('\n[Orb2DS] Initial guess\n\n');
+    fprintf('  Departure phase                : %.9g\n', timing.phase);
+    fprintf('  Departure epoch [days]         : %.9g\n', timing.departure_days);
+    fprintf('  Waiting time [days]            : %.6g\n', timing.wait_days);
+    fprintf('  Flight time [days]             : %.6g\n', timing.transfer_days);
+    fprintf('  Total time [days]              : %.6g\n', timing.total_days);
+    fprintf('  Time-cap excess [days]         : %.6g\n', timing.time_excess_days);
+    fprintf('  Lunar epoch alignment [rad]    : %.6g\n', timing.moon_phase_mismatch_rad);
 end
 end
 

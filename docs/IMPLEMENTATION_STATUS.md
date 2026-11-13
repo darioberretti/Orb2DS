@@ -20,6 +20,8 @@ MATLAB path. Complete copyable configurations are
   workflow and deterministic multistart with `find_transfer`.
 - Check physical feasibility with `validate_solution`, reconstruct the separate
   trajectory with `reconstruct_trajectory` and display it with `plot_trajectory`.
+- Inspect stored diagnostics with `print_result` and all node impulses with
+  `node_table`; see [console output and inspection](LOGGING.md).
 
 ## Model and controls
 

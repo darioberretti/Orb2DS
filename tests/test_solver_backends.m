@@ -121,6 +121,7 @@ end
 function testIPOPTBothStagesAndNativePrecedence(testCase)
 require_casadi(testCase);
 options = testCase.TestData.options;
+options.validation.require_pass = true;
 options.solver.name = 'ipopt';
 options.solver.max_iterations = 10;
 options.solver.ipopt.max_iter = 0;

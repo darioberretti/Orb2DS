@@ -6,6 +6,12 @@ and continuously chained physical acceptance. `result.validation.tolerances`
 reports the physical thresholds applied by the validator;
 `result.constraint_tolerances` reports the separate solver residual scales.
 
+With `options.validation.require_pass=false` (default), selection prioritizes
+convergent delta-v solves and compares their costs. A selected point outside
+the physical criteria is retained in `result.candidate` with its full diagnostics.
+Set `require_pass=true` to select by validated cost. Both settings perform the
+same physical checks.
+
 ## Run the tests
 
 From the repository root:
@@ -52,9 +58,8 @@ against `options.validation`, independently of solver constraint tolerances.
 
 `local_is_feasible` reports junction/boundary checks. `chained.is_feasible`
 requires those plus chained closure, target and clearance checks. Overall
-`is_feasible` and `checks.chained` include the chained requirement. If no stage
-candidate passes, `result.candidate` retains a rejected record when available.
-The examples plot it with an explicit unvalidated label.
+`is_feasible` and `checks.chained` include the chained requirement. The examples
+plot the selected record and label its physical status.
 
 ## Numerical interpretation
 

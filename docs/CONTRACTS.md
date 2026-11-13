@@ -70,6 +70,12 @@ only. Stage 1 has zero objective; stage 2 displays normalized total delta-v,
 converted to m/s by `model.velocity_km_s*1000`. Native normalized feasibility
 and solver stopping measures are distinct from independent physical validation.
 
+Console blocks have phase headings and aligned diagnostics. `node_table(result)`
+returns every node's epoch and rotating impulse components/magnitude in m/s;
+it chooses solution, then candidate. `print_result(result)` explicitly prints
+stored physical diagnostics without propagation. Neither modifies the result
+or writes files. See [logging and data inspection](LOGGING.md).
+
 ## Orbit and model
 
 An orbit has `schema_version=1`, `state_ref` (6x1 physical rotating state),
@@ -246,14 +252,30 @@ physical initialization, without solving or requiring a solver dependency.
 `result` contains status, `solution`, `candidate`, `validation`, `constraint_tolerances`, `seed`, compact
 `solver` diagnostics, attempt summaries, active constraints, effective inputs
 (without the database), and provenance. `find_transfer` also reports search
-diagnostics. Distinguish `no_seed_found`, `no_validated_solution`,
-`feasible_converged` and `feasible_without_optimization_convergence`.
+diagnostics. `options.validation.require_pass` selects the ranking policy for
+stages and starts. It defaults to `false`, which prioritizes convergent delta-v
+solves and then lower cost. When no delta-v solve converges, physically validated
+points take priority, followed by cost. With `true`, the lowest-cost validated
+point takes priority and a rejected record is retained for inspection when none
+passes.
 
-`solution` is the lowest-cost record passing local and chained physical checks among stage candidates
-and starts. When no record is accepted, `candidate` retains the failed checked
-record if one exists. Solver exit flags and independent physical acceptance
-are separate. Best-feasible points reported by fmincon are checked as well;
-no optimizer vectors or callbacks are copied into result diagnostics.
+The selected record is stored in `solution` if it passes the local and chained
+checks, or in `candidate` if it falls outside the physical criteria. The full
+diagnostics for that record are in `validation`, with compact residuals and
+checks for individual stages in `solver.stage_validation`. Each start summary
+reports its selected point's cost, physical verdict and solver convergence.
+`solver.selected_stage` identifies the returned record. `solver.converged`
+reports convergence of its delta-v solve independently of the physical verdict.
+Best-feasible points from fmincon carry the termination status of their solve.
+
+| `result.status` | Meaning |
+|---|---|
+| `feasible_converged` | The selected point passes physical checks and its delta-v solve converged. |
+| `feasible_without_optimization_convergence` | The selected point passes physical checks and delta-v convergence was not reached for it. |
+| `transfer_found` | Exploratory selection retained a convergent solve outside the physical criteria. |
+| `candidate_available` | Exploratory selection retained a point outside the physical criteria from a stopped solve. |
+| `no_validated_solution` | Strict selection found only points outside the physical criteria. |
+| `no_seed_found` | Search found no initial guess to optimize. |
 Each stage records its solver/evaluation route, effective native options,
 iterations and stopping information. IPOPT's native `return_status` is retained;
 `Solved_To_Acceptable_Level` is distinguished from `Solve_Succeeded` and does

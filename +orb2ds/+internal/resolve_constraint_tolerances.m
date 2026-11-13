@@ -18,7 +18,7 @@ function effective = resolve_constraint_tolerances(options)
 %              inherit validation; supplied values apply min(validation,value).
 %              Validation thresholds are never modified.
 
-validation = options.validation;
+validation = rmfield(options.validation, 'require_pass');
 names = fieldnames(validation);
 for index = 1:numel(names)
     validateattributes(validation.(names{index}), {'double'}, ...

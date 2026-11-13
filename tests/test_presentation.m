@@ -87,13 +87,19 @@ end
 
 function testLibrarySummariesDoNotChangeOptimization(testCase)
 options = testCase.TestData.options;
+options.solver.fmincon.options.ConstraintTolerance = 1e-6;
 quiet_text = evalc('quiet = orb2ds.optimize_transfer(testCase.TestData.problem, testCase.TestData.solution, options);');
 verifyEmpty(testCase, strtrim(quiet_text));
 options.output.display = true;
 text = evalc('verbose = orb2ds.optimize_transfer(testCase.TestData.problem, testCase.TestData.solution, options);');
-verifyTrue(testCase, contains(text, 'Stage 1: feasibility'));
-verifyTrue(testCase, contains(text, 'Stage 2: minimize delta-v'));
-verifyTrue(testCase, contains(text, 'Shooting feasible:'));
+verifyTrue(testCase, contains(text, '[Orb2DS] Feasibility search'));
+verifyTrue(testCase, contains(text, '[Orb2DS] Delta-v minimization'));
+verifyTrue(testCase, contains(text, '[Orb2DS] Solver constraint tolerances'));
+verifyNotEmpty(testCase, regexp(text, 'Constraint tolerance \[-\]\s+: 1e-06 \(ConstraintTolerance\)', 'once'));
+verifyNotEmpty(testCase, regexp(text, 'Segment continuity\s+1\s+1\s+-', 'once'));
+verifyFalse(testCase, contains(text, '[Orb2DS] Physical acceptance thresholds'));
+verifyFalse(testCase, contains(text, '[Orb2DS] Physical validation'));
+verifyTrue(testCase, contains(text, '[Orb2DS] Transfer result'));
 verifyEqual(testCase, verbose.solution, quiet.solution);
 verifyEqual(testCase, verbose.validation, quiet.validation);
 end
@@ -103,6 +109,5 @@ options = testCase.TestData.options;
 options.solver.display = 'iter';
 text = evalc('orb2ds.optimize_transfer(testCase.TestData.problem, testCase.TestData.solution, options);');
 verifyTrue(testCase, contains(text, 'Iter') && contains(text, 'Func-count'));
-verifyFalse(testCase, contains(text, 'Stage 1: feasibility'));
-verifyFalse(testCase, contains(text, 'orb2ds result:'));
+verifyFalse(testCase, contains(text, '[Orb2DS]'));
 end

@@ -116,16 +116,20 @@ end
 seed.provenance.mesh = summary;
 seed = orb2ds.internal.check_record(seed);
 if options.output.display
-    fprintf('orb2ds mesh: %d nodes; initial step %.6g to %.6g days\n', ...
-        summary.n_nodes, summary.min_step_days, summary.max_step_days);
+    fprintf('\n[Orb2DS] Shooting mesh\n\n');
+    fprintf('  Total nodes                    : %d\n', summary.n_nodes);
+    fprintf('  Initial step range [days]      : %.6g -- %.6g\n', summary.min_step_days, summary.max_step_days);
     if refinement.factor > 1
-        fprintf('  Refined interval [%.9g, %.9g] days; factor %.6g; maximum step %.6g days\n', ...
-            refinement.start_days, refinement.end_days, refinement.factor, refinement.max_step_days);
+        fprintf('\n  Local refinement\n');
+        fprintf('    Epoch interval [days]        : [%.9g, %.9g]\n', refinement.start_days, refinement.end_days);
+        fprintf('    Refinement factor            : %.6g\n', refinement.factor);
+        fprintf('    Maximum step [days]          : %.6g\n', refinement.max_step_days);
     end
+    fprintf('\n  %-20s %8s %22s\n', 'Arc', 'Nodes', 'Maximum step [days]');
+    labels = {'Orbit to Moon', 'Lunar flyby', 'Moon to Earth'};
     for index = 1:numel(summary.arcs)
         arc = summary.arcs(index);
-        fprintf('  %s: %d nodes; maximum step %.6g days\n', ...
-            arc.name, arc.n_nodes, arc.max_step_days);
+        fprintf('  %-20s %8d %22.6g\n', labels{index}, arc.n_nodes, arc.max_step_days);
     end
 end
 end

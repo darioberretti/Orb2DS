@@ -24,6 +24,11 @@ Saving is explicit. Prepare and authorize destinations before numerical work,
 then save completed data in the user's project. See `docs/OUTPUT.md`; scientific
 solvers do not create result folders or request file-overwrite confirmation.
 
+Use `[Orb2DS]` phase headings, aligned labels and value/limit checks for library
+messages. Keep native solver tables separate and avoid duplicate struct dumps.
+Data-location messages must identify saved files or in-memory records; see
+`docs/LOGGING.md` for inspection commands and display controls.
+
 Keep code short, readable and well formatted, with informative function headers
 and brief comments between meaningful stages. MATLAB example scripts begin
 with `clc; close all; clear;`, then add the library root to the path.

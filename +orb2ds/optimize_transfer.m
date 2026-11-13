@@ -9,10 +9,10 @@ function result = optimize_transfer(problem, seed, supplied)
 %   First solve the zero-objective feasibility problem when enabled, then
 %   minimize total delta-v with the same constraints using configurable
 %   fmincon or CasADi/IPOPT (MATLAB callbacks or symbolic CVODES evaluation).
-%   Validate both returned stage candidates and retain the lowest-cost
-%   record passing local and chained checks. A physically accepted record
-%   without optimization convergence is
-%   labeled separately. A failed final candidate is retained compactly.
+%   Evaluate local and chained checks on every returned stage candidate.
+%   By default, prefer convergent delta-v solves and compare their costs.
+%   validation.require_pass selects by lowest physically accepted cost.
+%   The selected compact record and its physical diagnostics are retained.
 %
 % INPUT:
 %   problem  Current orbit, target and constraints. Database is not read.
@@ -51,6 +51,10 @@ result.solver.evaluation = options.solver.evaluation;
 if strcmp(options.solver.name, 'fmincon')
     solve = @(initial, stage) orb2ds.internal.solve_fmincon(nlp, initial, stage);
 else
+    if options.output.display
+        fprintf('\n[Orb2DS] IPOPT solver preparation\n\n');
+        fprintf('  Evaluation                     : %s\n', options.solver.evaluation);
+    end
     graph = orb2ds.internal.build_casadi_problem(nlp);
     solve = @(initial, stage) orb2ds.internal.solve_ipopt(nlp, graph, initial, stage);
     result.solver.graph_build_seconds = graph.build_seconds;
@@ -60,24 +64,28 @@ vectors = {};
 stages = {};
 initial = nlp.initial;
 if options.output.display
-    fprintf('\norb2ds optimization: %d nodes, seed delta-v %.6f m/s, flight %.6f days\n', ...
-        numel(seed.nodes.time_days), 1000 * sum(vecnorm(seed.nodes.delta_v_km_s, 2, 2)), ...
-        seed.nodes.time_days(end) - seed.nodes.time_days(1));
-    fprintf('Solver: %s; evaluation: %s\n', options.solver.name, options.solver.evaluation);
-    v = options.validation;
-    a = nlp.constraint_tolerances;
-    fprintf('Validation: position %.3g km; velocity %.3g km/s; time %.3g days\n', ...
-        v.position_km, v.velocity_km_s, v.time_days);
-    fprintf('Solver constraint scales: dynamics %.3g km / %.3g km/s; departure %.3g km / %.3g km/s\n', ...
-        a.dynamics.position_km, a.dynamics.velocity_km_s, a.departure.position_km, ...
-        a.departure.velocity_km_s);
-    fprintf('  Target %.3g km/s; radial speed %.3g km/s; clearance %.3g km; time %.3g days\n', ...
-        a.target.velocity_km_s, a.periapsis.radial_velocity_km_s, ...
-        a.clearance.altitude_km, a.time_days);
+    fprintf('\n[Orb2DS] Optimization setup\n\n');
+    fprintf('  Shooting nodes                 : %d\n', numel(seed.nodes.time_days));
+    fprintf('  Initial delta-v [m/s]          : %.6f\n', 1000 * sum(vecnorm(seed.nodes.delta_v_km_s, 2, 2)));
+    fprintf('  Initial flight [days]          : %.6f\n', seed.nodes.time_days(end) - seed.nodes.time_days(1));
+    fprintf('  Solver                         : %s\n', options.solver.name);
+    fprintf('  Evaluation                     : %s\n', options.solver.evaluation);
+    if options.solver.run_feasibility
+        fprintf('  Feasibility stage              : ENABLED\n');
+    else
+        fprintf('  Feasibility stage              : DISABLED\n');
+    end
+    if options.validation.require_pass
+        v = options.validation;
+        fprintf('\n[Orb2DS] Physical acceptance thresholds\n\n');
+        fprintf('  Position [km]                  : %.6g\n', v.position_km);
+        fprintf('  Velocity [m/s]                 : %.6g\n', 1000 * v.velocity_km_s);
+        fprintf('  Time [s]                       : %.6g\n', 86400 * v.time_days);
+    end
 end
 if options.solver.run_feasibility
     if options.output.display
-        fprintf('Stage 1: feasibility, zero objective\n');
+        fprintf('\n[Orb2DS] Feasibility search\n\n  Objective                    : zero\n');
     end
     stage_timer = tic;
     [initial, ~, summary] = solve(initial, 'feasibility');
@@ -85,14 +93,12 @@ if options.solver.run_feasibility
     stages{end + 1} = summary;
     result.solver.feasibility = stages{end};
     if options.output.display
-        fprintf('Stage 1 finished: exitflag %d, %d iterations, %.2f s\n', ...
-            summary.exitflag, summary.iterations, toc(stage_timer));
+        print_solver_summary(summary, toc(stage_timer), 'feasibility');
     end
 end
 if options.output.display
-    fprintf('Stage 2: minimize delta-v\n');
-    fprintf('Native %s f(x) is normalized: delta-v [m/s] = f(x) * %.9g\n', ...
-        options.solver.name, nlp.model.velocity_km_s * 1000);
+    fprintf('\n[Orb2DS] Delta-v minimization\n\n');
+    fprintf('  Native objective conversion    : delta-v [m/s] = f(x) * %.9g\n', nlp.model.velocity_km_s * 1000);
 end
 stage_timer = tic;
 [final, value, summary, best_feasible] = solve(initial, 'delta_v');
@@ -101,79 +107,85 @@ stages{end + 1} = summary;
 result.solver.optimization = stages{end};
 result.solver.final_objective_delta_v_m_s = value * nlp.model.velocity_km_s * 1000;
 if options.output.display
-    fprintf('Stage 2 finished: exitflag %d, %d iterations, %.2f s\n', ...
-        summary.exitflag, summary.iterations, toc(stage_timer));
-    if isfield(summary, 'inf_pr')
-        fprintf('  IPOPT final inf_pr: %.3g (NLP residual, not km)\n', summary.inf_pr);
-    end
-    fprintf('Independent physical validation of returned stage candidates...\n');
+    print_solver_summary(summary, toc(stage_timer), 'delta-v minimization');
+end
+if options.output.display && options.validation.require_pass
+    fprintf('\n[Orb2DS] Candidate validation\n\n');
+    fprintf('  Returned records to check      : %d\n', numel(vectors) + ~isempty(best_feasible));
 end
 if ~isempty(best_feasible)
     vectors{end + 1} = best_feasible;
     summary.stage = 'delta_v_best_feasible';
     stages{end + 1} = summary;
 end
-best_cost = inf;
-selected_stage = 0;
+require_pass = options.validation.require_pass;
+best = [];
 stage_checks = cell(numel(vectors), 1);
 for index = 1:numel(vectors)
     candidate = orb2ds.internal.record_from_vector(vectors{index}, nlp);
     validation = orb2ds.validate_solution(candidate, problem, options);
     candidate.metrics.achieved_vinf_eci_km_s = validation.achieved_vinf_eci_km_s;
     candidate.metrics.target_error_km_s = validation.target_error_km_s;
-    stage_checks{index} = struct('stage', stages{index}.stage, ...
+    is_delta_v = ismember(stages{index}.stage, {'delta_v', 'delta_v_best_feasible'});
+    current = struct('stage', stages{index}.stage, ...
+        'solver_converged', is_delta_v && stages{index}.converged, ...
+        'is_feasible', validation.is_feasible, ...
         'delta_v_m_s', candidate.metrics.delta_v_m_s, 'checks', validation.checks, ...
         'position_defect_km', validation.max_position_defect_km, ...
         'velocity_defect_km_s', validation.max_velocity_defect_km_s, ...
+        'departure_position_error_km', validation.departure_position_error_km, ...
+        'departure_velocity_error_km_s', validation.departure_velocity_error_km_s, ...
         'target_error_km_s', validation.target_error_km_s, ...
         'min_earth_altitude_km', validation.min_earth_altitude_km, ...
-        'min_moon_altitude_km', validation.min_moon_altitude_km);
-    if validation.is_feasible && candidate.metrics.delta_v_m_s < best_cost
-        result.solution = candidate;
+        'min_moon_altitude_km', validation.min_moon_altitude_km, 'chained', validation.chained);
+    stage_checks{index} = current;
+    % An unsuccessful zero-objective stage is a starting point for the delta-v solve.
+    if (is_delta_v || current.is_feasible) && orb2ds.internal.prefer_transfer(current, best, require_pass)
+        best = current;
         result.validation = validation;
-        best_cost = candidate.metrics.delta_v_m_s;
-        selected_stage = index;
-    end
-    if index == numel(vectors) && isempty(result.solution)
-        result.candidate = candidate;
-        result.validation = validation;
+        result.solution = [];
+        result.candidate = [];
+        if current.is_feasible
+            result.solution = candidate;
+        else
+            result.candidate = candidate;
+        end
     end
 end
 result.solver.stage_validation = vertcat(stage_checks{:});
-result.solver.converged = selected_stage > 0 && ...
-    ismember(stages{selected_stage}.stage, {'delta_v', 'delta_v_best_feasible'}) && ...
-    stages{selected_stage}.converged;
-result.solver.selected_stage = '';
-if selected_stage > 0
-    result.solver.selected_stage = stages{selected_stage}.stage;
-end
-if isempty(result.solution)
-    result.status = 'no_validated_solution';
-elseif result.solver.converged
+result.solver.converged = best.solver_converged;
+result.solver.selected_stage = best.stage;
+if best.is_feasible && best.solver_converged
     result.status = 'feasible_converged';
-else
+elseif best.is_feasible
     result.status = 'feasible_without_optimization_convergence';
+elseif require_pass
+    result.status = 'no_validated_solution';
+elseif best.solver_converged
+    result.status = 'transfer_found';
+else
+    result.status = 'candidate_available';
 end
 if options.output.display
-    fprintf('orb2ds result: %s; selected stage: %s\n', ...
-        result.status, result.solver.selected_stage);
-    fprintf('  Delta-v %.6f m/s; target error %.3g km/s\n', ...
-        result.validation.delta_v_m_s, result.validation.target_error_km_s);
-    fprintf('  Segment defects: position %.3g km (limit %.3g); velocity %.3g km/s (limit %.3g)\n', ...
-        result.validation.max_position_defect_km, options.validation.position_km, ...
-        result.validation.max_velocity_defect_km_s, options.validation.velocity_km_s);
-    fprintf('  Departure errors: position %.3g km (limit %.3g); velocity %.3g km/s (limit %.3g)\n', ...
-        result.validation.departure_position_error_km, options.validation.position_km, ...
-        result.validation.departure_velocity_error_km_s, options.validation.velocity_km_s);
-    names = fieldnames(result.validation.checks);
-    failed = names(~cell2mat(struct2cell(result.validation.checks)));
-    if ~isempty(failed)
-        fprintf('  Failed physical checks: %s\n', strjoin(failed, ', '));
-    end
-    fprintf('  Minimum altitude: Earth %.6f km; Moon %.6f km\n', ...
-        result.validation.min_earth_altitude_km, result.validation.min_moon_altitude_km);
-    fprintf('  Shooting feasible: %d; chained feasible: %d; chained position error %.3g km\n', ...
-        result.validation.local_is_feasible, result.validation.chained.is_feasible, ...
-        result.validation.chained.endpoint_position_error_km);
+    orb2ds.print_result(result, require_pass);
+end
+end
+
+function print_solver_summary(summary, elapsed, stage)
+%PRINT_SOLVER_SUMMARY Separate native termination from physical acceptance.
+fprintf('\n[Orb2DS] Solver result -- %s\n\n', stage);
+if summary.converged
+    fprintf('  Solver termination             : CONVERGED\n');
+else
+    fprintf('  Solver termination             : NOT CONVERGED\n');
+end
+if isfield(summary, 'return_status')
+    fprintf('  Native status                  : %s\n', summary.return_status);
+end
+fprintf('  Exit flag                      : %d\n', summary.exitflag);
+fprintf('  Iterations                     : %d\n', summary.iterations);
+fprintf('  Elapsed time [s]               : %.2f\n', elapsed);
+if isfield(summary, 'inf_pr')
+    fprintf('  IPOPT scaled residual [-]      : %.6g\n', summary.inf_pr);
 end
 end

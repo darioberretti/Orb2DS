@@ -18,7 +18,6 @@ addpath(library_root);
 
 %% 2. Inspect the ranked leg matches before choosing one.
 [candidates, search] = orb2ds.find_legs(problem, options);
-disp(search);
 assert(candidate_index <= numel(candidates), 'The search did not return this candidate.');
 matches = candidates(:);
 candidate_table = table((1:numel(matches)).', ...
@@ -33,24 +32,21 @@ candidate_table = table((1:numel(matches)).', ...
     'VariableNames', {'Candidate', 'DatabaseRow', 'DeparturePhase', ...
     'OrbitBurn_m_s', 'EarthBurn_m_s', 'MoonSpeedMismatch_m_s', ...
     'Wait_days', 'EstimatedFlight_days', 'MoonEpochMismatch_rad'});
+fprintf('\n[Orb2DS] Ranked candidates\n\n');
 disp(candidate_table);
 
 %% 3. Assemble the chosen match with a finite lunar passage.
-fprintf('Selected candidate %d, database row %d\n', ...
-    candidate_index, candidates(candidate_index).orbit_moon.row_id);
+fprintf('\n[Orb2DS] Candidate selection\n\n');
+fprintf('  Candidate                      : %d\n', candidate_index);
+fprintf('  Database row                   : %d\n', candidates(candidate_index).orbit_moon.row_id);
 transfer = orb2ds.assemble_transfer(problem, candidates(candidate_index), options);
 assert(~isempty(transfer), 'This candidate has no assembled finite lunar passage.');
-disp(transfer.events);
 if options.output.plot_initial_guess
     orb2ds.plot_initial_guess(transfer, [], plot_settings);
 end
 
 %% 4. Discretize the assembled transfer for multiple shooting.
 [seed, mesh_summary] = orb2ds.mesh_transfer(problem, transfer, options);
-disp(mesh_summary);
-fprintf('Initial guess: %d nodes, delta-v %.6f m/s, flight %.6f days\n', ...
-    numel(seed.nodes.time_days), 1000 * sum(vecnorm(seed.nodes.delta_v_km_s, 2, 2)), ...
-    seed.timing.transfer_days);
 
 %% 5. Inspect the exact NLP initialization without running a solver.
 nlp_guess = orb2ds.transcribe_guess(problem, seed, options);
@@ -69,7 +65,24 @@ solve_options = options;
 solve_options.output.plot_nlp_guess = false;
 problem = rmfield(problem, 'database');
 result = orb2ds.optimize_transfer(problem, seed, solve_options);
-disp(result.status);
+
+% Locate the in-memory data without repeating the physical summary.
+if options.output.display
+    fprintf('\n[Orb2DS] Result data\n\n');
+    fprintf('  Storage                        : MATLAB workspace only\n');
+    fprintf('  Variable                       : result\n');
+    if ~isempty(result.solution)
+        fprintf('  Transfer record                : result.solution\n');
+    elseif ~isempty(result.candidate)
+        fprintf('  Transfer record                : result.candidate\n');
+    else
+        fprintf('  Transfer record                : NONE\n');
+    end
+    fprintf('  Node table                     : nodes = orb2ds.node_table(result);\n');
+    fprintf('  Open table                     : openvar(''nodes'');\n');
+    fprintf('  Full report                    : orb2ds.print_result(result);\n');
+end
+
 
 %% 7. Reconstruct the final solution or unvalidated optimization candidate.
 final_record = result.solution;
@@ -79,9 +92,6 @@ if isempty(final_record)
     plot_label = 'Unvalidated optimization candidate';
 end
 if ~isempty(final_record)
-    disp(final_record.timing);
-    disp(result.validation.checks);
-    disp(result.validation.chained);
     trajectory = orb2ds.reconstruct_trajectory(final_record);
     solution_figure = orb2ds.plot_trajectory(trajectory, plot_settings);
     solution_figure.Name = plot_label;

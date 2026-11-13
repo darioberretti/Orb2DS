@@ -241,7 +241,10 @@ cfg.options.solver.cvodes = struct();               % Native CVODES integrator o
 
 %% Independent physical validation
 
-% Always-active acceptance thresholds for independent ode113 propagation.
+cfg.options.validation.require_pass = false; % Logical. True requires physical acceptance for selection.
+% False prioritizes convergent delta-v solves and then compares cost. Every
+% returned stage is checked and the selected record keeps all diagnostics.
+% Thresholds for independent ode113 propagation in either mode.
 % Vector errors use Euclidean norms, not separate Cartesian axes. All values
 % must be positive finite scalars; solver constraint settings do not change them.
 % Position covers segment/departure/chained errors and altitude shortfall.

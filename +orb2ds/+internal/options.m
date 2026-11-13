@@ -3,6 +3,7 @@ function options = options(supplied)
 
 options = orb2ds.internal.merge_options( ...
     orb2ds.defaults.numerical_options(), supplied, 'options');
+validateattributes(options.validation.require_pass, {'logical'}, {'scalar'});
 validateattributes(options.patching.target_iterations, {'double'}, ...
     {'scalar', 'real', 'finite', 'integer', 'positive'});
 orb2ds.internal.resolve_constraint_tolerances(options);

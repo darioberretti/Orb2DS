@@ -68,15 +68,17 @@ if ~isempty(existing)
         guidance = 'Set overwrite_without_prompt = true to authorize replacement without asking.';
         assert(~batchStartupOptionUsed, 'orb2ds:OverwriteConfirmationRequired', ...
             'Output files already exist:\n%s%s Batch execution cannot ask for confirmation.', message, guidance);
-        fprintf('These files will be replaced only when new outputs are ready:\n%s%s\n', message, guidance);
+        fprintf('\n[Orb2DS] Output authorization\n\n');
+        fprintf('  Existing files\n%s\n%s\n', message, guidance);
         answer = input('Overwrite these files? [y/N]: ', 's');
         if ~any(strcmpi(strtrim(answer), {'y', 'yes'}))
-            fprintf('Output cancelled; numerical work has not started.\n');
+            fprintf('  Authorization                  : DECLINED\n');
             destination = [];
             return
         end
     elseif settings.display
-        fprintf('Replacement authorized for:\n');
+        fprintf('\n[Orb2DS] Output authorization\n\n');
+        fprintf('  Replacement                    : AUTHORIZED\n');
         fprintf('  %s\n', existing{:});
     end
 end
@@ -84,11 +86,13 @@ if ~isfolder(directory)
     [ok, message] = mkdir(directory);
     assert(ok, 'orb2ds:OutputDirectory', 'Cannot create output directory: %s', message);
     if settings.display
-        fprintf('Created output directory: %s\n', directory);
+        fprintf('\n[Orb2DS] Output directory\n\n');
+        fprintf('  Action                         : CREATED\n');
+        fprintf('  Directory                      : %s\n', directory);
     end
 end
 if settings.display
-    fprintf('Prepared output files:\n');
+    fprintf('\n[Orb2DS] Prepared output files\n\n');
     fprintf('  %s\n', destination.files{:});
 end
 end

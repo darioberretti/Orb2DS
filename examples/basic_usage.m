@@ -14,7 +14,24 @@ addpath(library_root);
 % Prepare inputs and execute the complete method.
 [problem, options] = orb2ds.load_case(case_file);
 result = orb2ds.find_transfer(problem, options);
-disp(result.status);
+
+% Locate the in-memory data without repeating the physical summary.
+if options.output.display
+    fprintf('\n[Orb2DS] Result data\n\n');
+    fprintf('  Storage                        : MATLAB workspace only\n');
+    fprintf('  Variable                       : result\n');
+    if ~isempty(result.solution)
+        fprintf('  Transfer record                : result.solution\n');
+    elseif ~isempty(result.candidate)
+        fprintf('  Transfer record                : result.candidate\n');
+    else
+        fprintf('  Transfer record                : NONE\n');
+    end
+    fprintf('  Node table                     : nodes = orb2ds.node_table(result);\n');
+    fprintf('  Open table                     : openvar(''nodes'');\n');
+    fprintf('  Full report                    : orb2ds.print_result(result);\n');
+end
+
 
 % Always inspect a returned candidate; its label reports physical acceptance.
 final_record = result.solution;
@@ -24,9 +41,6 @@ if isempty(final_record)
     plot_label = 'Unvalidated optimization candidate';
 end
 if ~isempty(final_record)
-    disp(final_record.metrics);
-    disp(result.validation.checks);
-    disp(result.validation.chained);
     trajectory = orb2ds.reconstruct_trajectory(final_record);
     final_figure = orb2ds.plot_trajectory(trajectory, struct('show_defects', true));
     final_figure.Name = plot_label;

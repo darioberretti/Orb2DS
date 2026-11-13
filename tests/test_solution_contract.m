@@ -25,7 +25,7 @@ solution = testCase.TestData.solution;
 validation = orb2ds.validate_solution(solution, testCase.TestData.problem, testCase.TestData.options);
 verifyTrue(testCase, validation.is_feasible);
 verifyTrue(testCase, validation.chained.is_feasible);
-verifyEqual(testCase, validation.tolerances, testCase.TestData.options.validation);
+verifyEqual(testCase, validation.tolerances, rmfield(testCase.TestData.options.validation, 'require_pass'));
 verifyLessThan(testCase, validation.target_error_km_s, 1e-5);
 verifyEqual(testCase, validation.delta_v_m_s, ...
     1000 * sum(vecnorm(solution.nodes.delta_v_km_s, 2, 2)), 'AbsTol', 1e-10);
@@ -101,9 +101,49 @@ problem.target.vinf_km_s(1) = problem.target.vinf_km_s(1) + 0.02;
 result = orb2ds.optimize_transfer(problem, testCase.TestData.solution, testCase.TestData.options);
 verifyEmpty(testCase, result.solution);
 verifyNotEmpty(testCase, result.candidate);
-verifyEqual(testCase, result.status, 'no_validated_solution');
+verifyEqual(testCase, result.status, 'candidate_available');
+verifyFalse(testCase, result.solver.converged);
 verifyFalse(testCase, result.validation.checks.target);
 assert_compact(testCase, result);
+end
+
+function testExploratoryConvergenceRetainsPhysicalDiagnostics(testCase)
+problem = testCase.TestData.problem;
+seed = testCase.TestData.solution;
+options = testCase.TestData.options;
+options.solver.max_iterations = 5;
+options.solver.optimality_tolerance = 1;
+options.solver.constraint_tolerance = 1e-8;
+% Tightening the reference orbit check leaves the transfer solve untouched.
+options.validation.orbit_closure_position_km = 1e-12;
+options.output.display = true;
+trace = evalc('result = orb2ds.optimize_transfer(problem, seed, options);');
+verifyEqual(testCase, result.status, 'transfer_found');
+verifyTrue(testCase, result.solver.converged);
+verifyEmpty(testCase, result.solution);
+verifyFalse(testCase, result.validation.checks.orbit_closure);
+verifyFalse(testCase, result.validation.is_feasible);
+verifyTrue(testCase, contains(trace, 'Transfer found'));
+verifyFalse(testCase, contains(trace, 'FAIL'));
+verifyFalse(testCase, any(contains(trace, {'[Orb2DS] Candidate validation', ...
+    '[Orb2DS] Physical validation', '[Orb2DS] Continuous propagation'})));
+
+options.validation.require_pass = true;
+options.output.display = false;
+strict = orb2ds.optimize_transfer(problem, seed, options);
+verifyEqual(testCase, strict.status, 'no_validated_solution');
+verifyTrue(testCase, strict.solver.converged);
+verifyEqual(testCase, strict.constraint_tolerances, result.constraint_tolerances);
+verifyEqual(testCase, result.validation, orb2ds.validate_solution(result.candidate, problem, options));
+report = evalc('orb2ds.print_result(result);');
+verifyTrue(testCase, all(cellfun(@(label) contains(report, label), ...
+    {'[Orb2DS] Physical validation', '[Orb2DS] Continuous propagation', 'FAIL'})));
+
+filename = [tempname, '.mat'];
+cleanup = onCleanup(@() delete(filename));
+save(filename, 'result');
+restored = load(filename, 'result');
+verifyEqual(testCase, restored.result, result);
 end
 
 function testSavingSolutionAlone(testCase)

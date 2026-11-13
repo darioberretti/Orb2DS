@@ -16,7 +16,20 @@ problem = rmfield(problem, 'database');
 
 % Optimization does not repeat matching or silently change the mesh.
 result = orb2ds.optimize_transfer(problem, seed, options);
-disp(result.status);
-if ~isempty(result.solution)
-    disp(result.solution.metrics);
+
+% Locate the in-memory data without repeating the physical summary.
+if options.output.display
+    fprintf('\n[Orb2DS] Result data\n\n');
+    fprintf('  Storage                        : MATLAB workspace only\n');
+    fprintf('  Variable                       : result\n');
+    if ~isempty(result.solution)
+        fprintf('  Transfer record                : result.solution\n');
+    elseif ~isempty(result.candidate)
+        fprintf('  Transfer record                : result.candidate\n');
+    else
+        fprintf('  Transfer record                : NONE\n');
+    end
+    fprintf('  Node table                     : nodes = orb2ds.node_table(result);\n');
+    fprintf('  Open table                     : openvar(''nodes'');\n');
+    fprintf('  Full report                    : orb2ds.print_result(result);\n');
 end

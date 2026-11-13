@@ -43,6 +43,14 @@ objective = @(x) orb2ds.internal.objective(x, nlp);
 if strcmp(stage, 'feasibility')
     objective = @zero_objective;
 end
+if nlp.options.output.display && (strcmp(stage, 'feasibility') || ~options.run_feasibility)
+    test = 'relative';
+    if strcmp(settings.Algorithm, 'active-set')
+        test = 'absolute';
+    end
+    orb2ds.internal.print_constraint_tolerances(nlp, settings.ConstraintTolerance, ...
+        'ConstraintTolerance', sprintf('%s (%s)', test, settings.Algorithm));
+end
 timer = tic;
 [vector, value, flag, output] = fmincon(objective, initial, nlp.A, nlp.b, ...
     [], [], nlp.lower, nlp.upper, @(x) orb2ds.internal.constraints(x, nlp), settings);

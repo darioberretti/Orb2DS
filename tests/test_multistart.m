@@ -21,6 +21,7 @@ options.solver.max_iterations = 0;
 options.output.display = false;
 options.solver.display = 'off';
 options.output.keep_attempt_solutions = true;
+options.validation.require_pass = true;
 result = orb2ds.find_transfer(problem, options);
 verifyNumElements(testCase, result.attempts, 2);
 valid = [result.attempts.is_feasible];
@@ -33,4 +34,14 @@ for index = find(valid)
     verifyNotEmpty(testCase, result.attempts(index).solution);
     verifyFalse(testCase, isfield(result.attempts(index).solution, 'trajectory'));
 end
+end
+
+function testExploratoryRankingUsesSolverConvergenceThenCost(testCase)
+validated = struct('is_feasible', true, 'solver_converged', false, 'delta_v_m_s', 270);
+converged = struct('is_feasible', false, 'solver_converged', true, 'delta_v_m_s', 280);
+verifyTrue(testCase, orb2ds.internal.prefer_transfer(converged, validated, false));
+verifyFalse(testCase, orb2ds.internal.prefer_transfer(converged, validated, true));
+cheaper = converged;
+cheaper.delta_v_m_s = 275;
+verifyTrue(testCase, orb2ds.internal.prefer_transfer(cheaper, converged, false));
 end

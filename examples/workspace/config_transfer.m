@@ -46,6 +46,8 @@ cfg.options.solver.display = 'iter';
 cfg.options.output.display = true;
 cfg.options.output.plot_initial_guess = true;
 cfg.options.output.plot_nlp_guess = true;
+cfg.options.validation.require_pass = false; % True selects by physically validated cost.
+% Both settings compute and retain the physical diagnostics.
 
 %% Explicit result saving, separate from numerical options
 

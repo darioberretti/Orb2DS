@@ -31,14 +31,24 @@ if isfile(filename)
     orb2ds.internal.same_orbit(database.orbit, orbit);
     assert(isequaln(database.generation, generation), 'orb2ds:DatabaseSettings', ...
         'Existing database grid or integration settings differ; choose a new filename.');
+    if options.output.display
+        fprintf('\n[Orb2DS] Database reuse\n\n');
+        fprintf('  File                           : %s\n', filename);
+        fprintf('  Lunar encounters               : %d\n', numel(database.encounters.row_id));
+    end
     return
+end
+if options.output.display
+    fprintf('\n[Orb2DS] Database generation\n\n');
+    fprintf('  File                           : %s\n', filename);
+    display_timer = tic;
 end
 folder = fileparts(filename);
 if ~isempty(folder) && ~isfolder(folder)
     [ok, message] = mkdir(folder);
     assert(ok, 'orb2ds:OutputDirectory', 'Cannot create database directory: %s', message);
     if options.output.display
-        fprintf('Created database directory: %s\n', folder);
+        fprintf('  Created directory              : %s\n', folder);
     end
 end
 model = orbit.model;
@@ -71,6 +81,13 @@ ode_options = odeset('RelTol', options.integration.relative_tolerance, ...
     'AbsTol', options.integration.absolute_tolerance, ...
     'Events', @(t, state) encounter_events(t, state, model));
 horizon = grid.horizon_days / model.time_days;
+if options.output.display
+    fprintf('  Phase samples                  : %d\n', numel(grid.phases));
+    fprintf('  Impulse magnitudes             : %d\n', numel(grid.impulses_m_s));
+    fprintf('  Azimuths / elevations          : %d / %d\n', numel(grid.azimuths_rad), numel(grid.elevations_rad));
+    fprintf('  Horizon [days]                 : %.6g\n', grid.horizon_days);
+    fprintf('\n  %22s %22s\n', 'Departures completed', 'Total departures');
+end
 for phase = mod(grid.phases(:).', 1)
     departure = orb2ds.internal.propagate(reference, ...
         [0, phase * orbit.period_days / model.time_days], model, options);
@@ -97,7 +114,7 @@ for phase = mod(grid.phases(:).', 1)
             solution.xe(hits).' * model.time_days, states, local, asymptote];
     end
     if options.output.display
-        fprintf('orb2ds database: %d/%d departures\n', task, numel(rows));
+        fprintf('  %22d %22d\n', task, numel(rows));
     end
 end
 rows = vertcat(rows{:});
@@ -118,6 +135,10 @@ database = orb2ds.internal.check_database(database);
 assert(~isfile(filename), 'orb2ds:DatabaseExists', ...
     'A database appeared during generation; it will not be replaced: %s.', filename);
 save(filename, 'database', '-v7.3');
+if options.output.display
+    fprintf('\n  Lunar encounters             : %d\n', numel(database.encounters.row_id));
+    fprintf('  Elapsed time [s]               : %.2f\n', toc(display_timer));
+end
 end
 
 function [value, terminal, direction] = encounter_events(~, state, model)

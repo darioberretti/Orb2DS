@@ -23,7 +23,8 @@ if isfile(cfg.output.orbit)
     assert(isfield(stored, 'orbit') && isequaln(stored.orbit, cfg.orbit), ...
         'Existing orbit input differs; choose another orbit output filename.');
     if cfg.options.output.display
-        fprintf('Reusing orbit input: %s\n', cfg.output.orbit);
+        fprintf('\n[Orb2DS] Orbit input reuse\n\n');
+        fprintf('  File                           : %s\n', cfg.output.orbit);
     end
 else
     orbit_destination = orb2ds.prepare_output(orbit_folder, [orbit_name, orbit_extension], ...
@@ -34,19 +35,7 @@ else
 end
 
 % A compatible database is reused; incompatible archives are never overwritten.
-existed = isfile(cfg.output.database);
-generation_timer = tic;
 database = orb2ds.build_orbit_moon_database(cfg.orbit, cfg.output.database, cfg.options);
-elapsed_seconds = toc(generation_timer);
-if cfg.options.output.display
-    if existed
-        fprintf('Reused compatible database: %s\n', cfg.output.database);
-    else
-        fprintf('Created database: %s\n', cfg.output.database);
-    end
-    fprintf('Encounters: %d; elapsed %.3f s\n', ...
-        numel(database.encounters.row_id), elapsed_seconds);
-end
 
 % Export a new orbit input only; an identical existing descriptor stays untouched.
 if ~isempty(orbit_destination)

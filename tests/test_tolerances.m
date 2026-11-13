@@ -35,7 +35,7 @@ end
 function testInvalidToleranceValuesFailBeforeSolving(testCase)
 for bad = {0, -1, NaN, Inf, [1, 2], 1i, true}
     options = testCase.TestData.options;
-    for name = fieldnames(options.validation).'
+    for name = fieldnames(rmfield(options.validation, 'require_pass')).'
         invalid = options;
         invalid.validation.(name{1}) = bad{1};
         verifyTrue(testCase, throws(@() orb2ds.internal.options(invalid)));
@@ -149,7 +149,7 @@ tight = orb2ds.validate_solution(data.solution, data.problem, options);
 verifyFalse(testCase, tight.checks.position_defects);
 verifyFalse(testCase, tight.is_feasible);
 verifyEqual(testCase, tight.defects, base.defects);
-verifyEqual(testCase, tight.tolerances, options.validation);
+verifyEqual(testCase, tight.tolerances, rmfield(options.validation, 'require_pass'));
 end
 
 function testLocalFeasibilityDoesNotAcceptAChainedFailure(testCase)

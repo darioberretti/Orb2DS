@@ -37,7 +37,24 @@ assert(~isfolder(filename) && isequal(orb2ds.internal.output_file_state(filename
 [ok, message] = movefile(temporary, filename, 'f');
 assert(ok, 'orb2ds:OutputWrite', 'Could not save output: %s', message);
 if destination.display
-    fprintf('Saved output: %s\n', filename);
+    fprintf('\n[Orb2DS] Saved data\n\n');
+    fprintf('  Storage                        : MAT file\n');
+    fprintf('  File                           : %s\n', filename);
+    fprintf('  MAT variables                  : %s\n', strjoin(fieldnames(variables), ', '));
+    if isfield(variables, 'result') && isstruct(variables.result) && isscalar(variables.result) && ...
+            isfield(variables.result, 'solution') && isfield(variables.result, 'candidate')
+        if ~isempty(variables.result.solution)
+            fprintf('  Transfer record                : result.solution\n');
+        elseif ~isempty(variables.result.candidate)
+            fprintf('  Transfer record                : result.candidate\n');
+        else
+            fprintf('  Transfer record                : NONE\n');
+        end
+        fprintf('  Load in MATLAB                 : load(''%s'', ''result'')\n', strrep(filename, '''', ''''''));
+        fprintf('  Node table                     : nodes = orb2ds.node_table(result);\n');
+        fprintf('  Open table                     : openvar(''nodes'');\n');
+        fprintf('  Full report                    : orb2ds.print_result(result);\n');
+    end
 end
 end
 

@@ -7,8 +7,9 @@ function result = find_transfer(problem, supplied)
 % DESCRIPTION:
 %   Use the same directly callable scientific stages as the explicit API.
 %   Single-start is the default. Optional deterministic multistart refines
-%   distinct candidates from the existing ranking and selects the lowest
-%   validated delta-v. An exhausted search is not a proof of infeasibility.
+%   distinct candidates from the existing ranking. Compare convergent delta-v
+%   solves by cost, or select by validated cost when validation.require_pass
+%   is enabled.
 %   No database is generated and no transfer result is saved implicitly.
 %
 % INPUT:
@@ -33,12 +34,14 @@ result = orb2ds.internal.empty_result(problem, options);
 result.status = 'no_seed_found';
 attempts = struct([]);
 count = 0;
-best_cost = inf;
+best = [];
 for index = 1:numel(candidates)
     transfer = orb2ds.assemble_transfer(problem, candidates(index), options);
     if isempty(transfer)
         if options.output.display
-            fprintf('orb2ds candidate %d: no assembled finite lunar passage; skipping\n', index);
+            fprintf('\n[Orb2DS] Candidate assembly\n\n');
+            fprintf('  Candidate                      : %d\n', index);
+            fprintf('  Outcome                        : SKIPPED -- no assembled finite lunar passage\n');
         end
         continue
     end
@@ -51,22 +54,18 @@ for index = 1:numel(candidates)
         end
     end
     if options.output.display
-        fprintf('\norb2ds start %d/%d: candidate %d, database row %d\n', ...
-            count + 1, options.n_starts, index, candidates(index).orbit_moon.row_id);
+        fprintf('\n[Orb2DS] Transfer attempt %d/%d\n\n', count + 1, options.n_starts);
+        fprintf('  Candidate                      : %d\n', index);
+        fprintf('  Database row                   : %d\n', candidates(index).orbit_moon.row_id);
     end
     current = orb2ds.optimize_transfer(problem, seed, options);
     count = count + 1;
     summary = struct('candidate_index', index, 'status', current.status, ...
-        'is_feasible', ~isempty(current.solution), 'delta_v_m_s', NaN, ...
+        'is_feasible', current.validation.is_feasible, 'delta_v_m_s', current.validation.delta_v_m_s, ...
         'solver_converged', current.solver.converged);
-    if ~isempty(current.solution)
-        summary.delta_v_m_s = current.solution.metrics.delta_v_m_s;
-        if summary.delta_v_m_s < best_cost
-            result = current;
-            best_cost = summary.delta_v_m_s;
-        end
-    elseif isempty(result.solution)
+    if orb2ds.internal.prefer_transfer(summary, best, options.validation.require_pass)
         result = current;
+        best = summary;
     end
     if options.output.keep_attempt_solutions
         summary.solution = current.solution;
@@ -83,4 +82,13 @@ for index = 1:numel(candidates)
 end
 result.attempts = attempts;
 result.search = diagnostics;
+if options.output.display && (options.n_starts > 1 || count == 0)
+    fprintf('\n[Orb2DS] Transfer search result\n\n');
+    fprintf('  Status                         : %s\n', result.status);
+    fprintf('  Optimization attempts          : %d\n', count);
+    if ~isempty(best)
+        fprintf('  Selected delta-v [m/s]         : %.6f\n', best.delta_v_m_s);
+        fprintf('  Selected candidate             : %d\n', best.candidate_index);
+    end
+end
 end

@@ -154,8 +154,10 @@ the target, catalogue or search sampling changes. Several candidates may refer
 to the same database row with different Earth-side geometry.
 
 The explicit script optimizes one candidate even if `n_starts` is larger than 1.
-Use `find_transfer` with `options.n_starts` for automatic multistart and validated
-cost selection. No automatic candidate substitution occurs in the explicit script.
+Use `find_transfer` with `options.n_starts` for automatic multistart. Selection
+prioritizes convergent delta-v solves by default. Set
+`options.validation.require_pass=true` for lowest validated cost. The explicit
+script processes only the candidate selected in its editor section.
 
 Set `cfg.options.output.plot_initial_guess` and `plot_nlp_guess` independently
 to show or hide the two initial views. Both default to false in the library
@@ -182,16 +184,27 @@ library summaries on and native solver display off. Choose settings directly:
 | Summaries and every solver iteration | `true` | `'iter'` |
 | Iterations with detailed stopping information | `true` | `'iter-detailed'` |
 
-The script's explicit `disp`/`fprintf` inspections are separate from automatic
-library output and remain visible when library messages are disabled.
+Library messages have `[Orb2DS]` phase headings, aligned progress columns and
+value/limit validation rows when strict selection is enabled. The
+`step_by_step` candidate table remains visible when automatic output is off.
+The other examples use the library summary and a compact data-location block,
+without repeating raw result structures.
 
 The first solver table has `f(x)=0` by construction: watch feasibility there.
 In the second table, `f(x)` is normalized total delta-v; the stage header prints
 the factor converting it to m/s. `Feasibility` reports maximum normalized
 constraint violation, and first-order optimality concerns solver convergence.
-Neither replaces the final independent physical residuals in km and km/s.
+Neither replaces independent physical validation. The final report displays
+position errors in metres and velocity errors in mm/s, with the corresponding
+limits; stored data and configuration remain in km and km/s.
 The solver's native output can be enabled even with library summaries disabled.
 See MathWorks' [iteration table definitions](https://www.mathworks.com/help/optim/ug/iterative-display.html).
+
+The data-location block identifies `result.solution` or `result.candidate` and,
+when saving, the actual MAT file. Use `nodes = orb2ds.node_table(result)` and
+`openvar('nodes')` to inspect every impulse, including zero burns. Use
+`orb2ds.print_result(result)` to display stored validation again, without a new
+propagation. See [console output and inspection](../docs/LOGGING.md).
 
 ## Choosing the optimizer
 

@@ -70,6 +70,8 @@ save; authorization is not a permanent permission for a pathname.
 Only fields explicitly passed in the variables structure are saved. Saving
 `struct('result', result)` retains the compact transfer result. Trajectory
 samples and figures remain separate objects and are not added automatically.
+The save message identifies the MAT path and variable names. A saved `result`
+also gets commands for `node_table` and `print_result`; see [data inspection](LOGGING.md).
 
 ## Reusable inputs
 

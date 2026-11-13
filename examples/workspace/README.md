@@ -59,6 +59,9 @@ another destination, relative to config_transfer.m or absolute. Missing folders
 are created automatically. No sampled trajectory or figure is saved inside it. An accepted
 feasibility-stage result does not imply convergence of delta-v optimization;
 inspect solver status and local/chained physical checks separately.
+The final save block lists the MAT path, record and inspection commands. Use
+`nodes = orb2ds.node_table(result); openvar('nodes');` for all node impulses in
+m/s, and `orb2ds.print_result(result)` for the stored physical report.
 
 Before matching/optimization, the script checks its result filename. With
 `cfg.output.overwrite_without_prompt=false` it asks before replacing an existing

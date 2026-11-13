@@ -41,8 +41,15 @@ assert(height > 0, 'orb2ds:Patching', 'The altitude search must start above the 
 candidates = struct([]);
 diagnostics = struct('altitudes_km', [], 'candidate_counts', [], ...
     'settings', options.patching, 'database_rows', numel(database.encounters.row_id));
+if options.output.display
+    fprintf('\n[Orb2DS] Leg matching\n\n');
+    fprintf('  Database encounters            : %d\n', diagnostics.database_rows);
+end
 if ~any(all(isfinite(database.encounters.velocity_infinity_rth_km_s), 2))
     diagnostics.reason = 'no_hyperbolic_encounters_in_database';
+    if options.output.display
+        fprintf('  No hyperbolic lunar encounters in the supplied database.\n');
+    end
     return
 end
 found = false;
@@ -50,12 +57,17 @@ departures = orb2ds.internal.seed_departures(problem, database.encounters);
 diagnostics.departure_row_count = numel(unique(departures.row));
 diagnostics.departure_phase_grid = unique(database.encounters.departure_phase(departures.row));
 diagnostics.departure_replicas = numel(departures.row);
+if options.output.display
+    fprintf('  Shortlisted encounter rows     : %d\n', diagnostics.departure_row_count);
+    fprintf('  Departure / wait replicas      : %d\n', diagnostics.departure_replicas);
+    fprintf('\n  %-22s %18s\n', 'Earth altitude [km]', 'Candidates found');
+end
 for trial = 1:options.patching.max_altitude_trials
     at_height = evaluate_altitude(problem, database, departures, height, options);
     diagnostics.altitudes_km(end + 1, 1) = height;
     diagnostics.candidate_counts(end + 1, 1) = numel(at_height);
     if options.output.display
-        fprintf('orb2ds matching: altitude %.3f km, %d candidates\n', height, numel(at_height));
+        fprintf('  %22.3f %18d\n', height, numel(at_height));
     end
     if isempty(at_height)
         if found
