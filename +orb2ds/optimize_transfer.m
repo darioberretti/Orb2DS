@@ -1,5 +1,5 @@
 function result = optimize_transfer(problem, seed, supplied)
-%OPTIMIZE_TRANSFER Solve and independently validate one compact shooting guess.
+%OPTIMIZE_TRANSFER Solve one compact shooting guess with optional validation.
 %
 % PROTOTYPE:
 %   result = orb2ds.optimize_transfer(problem, seed, options)
@@ -9,10 +9,9 @@ function result = optimize_transfer(problem, seed, supplied)
 %   First solve the zero-objective feasibility problem when enabled, then
 %   minimize total delta-v with the same constraints using configurable
 %   fmincon or CasADi/IPOPT (MATLAB callbacks or symbolic CVODES evaluation).
-%   Evaluate local and chained checks on every returned stage candidate.
 %   By default, prefer convergent delta-v solves and compare their costs.
-%   validation.require_pass selects by lowest physically accepted cost.
-%   The selected compact record and its physical diagnostics are retained.
+%   validation.enabled evaluates independent checks on stage candidates.
+%   validation.require_pass also enables checks and selects by validated cost.
 %
 % INPUT:
 %   problem  Current orbit, target and constraints. Database is not read.
@@ -119,26 +118,50 @@ if ~isempty(best_feasible)
     stages{end + 1} = summary;
 end
 require_pass = options.validation.require_pass;
+validate_results = options.validation.enabled;
 best = [];
 stage_checks = cell(numel(vectors), 1);
+timeline_failures = cell(numel(vectors), 1);
 for index = 1:numel(vectors)
-    candidate = orb2ds.internal.record_from_vector(vectors{index}, nlp);
-    validation = orb2ds.validate_solution(candidate, problem, options);
-    candidate.metrics.achieved_vinf_eci_km_s = validation.achieved_vinf_eci_km_s;
-    candidate.metrics.target_error_km_s = validation.target_error_km_s;
     is_delta_v = ismember(stages{index}.stage, {'delta_v', 'delta_v_best_feasible'});
+    if ~is_delta_v && ~validate_results
+        continue
+    end
+    try
+        candidate = orb2ds.internal.record_from_vector(vectors{index}, nlp);
+    catch exception
+        if ~strcmp(exception.identifier, 'orb2ds:Nodes')
+            rethrow(exception);
+        end
+        shortest = min(vectors{index}(nlp.duration_indices)) * nlp.model.time_days;
+        timeline_failures{index} = sprintf( ...
+            'Stage %s returned unordered node epochs (shortest segment %.9g days).', ...
+            stages{index}.stage, shortest);
+        if options.output.display
+            fprintf('  Skipped solver output          : %s\n', timeline_failures{index});
+        end
+        continue
+    end
+    validation = struct();
     current = struct('stage', stages{index}.stage, ...
         'solver_converged', is_delta_v && stages{index}.converged, ...
-        'is_feasible', validation.is_feasible, ...
-        'delta_v_m_s', candidate.metrics.delta_v_m_s, 'checks', validation.checks, ...
-        'position_defect_km', validation.max_position_defect_km, ...
-        'velocity_defect_km_s', validation.max_velocity_defect_km_s, ...
-        'departure_position_error_km', validation.departure_position_error_km, ...
-        'departure_velocity_error_km_s', validation.departure_velocity_error_km_s, ...
-        'target_error_km_s', validation.target_error_km_s, ...
-        'min_earth_altitude_km', validation.min_earth_altitude_km, ...
-        'min_moon_altitude_km', validation.min_moon_altitude_km, 'chained', validation.chained);
-    stage_checks{index} = current;
+        'is_feasible', false, 'delta_v_m_s', candidate.metrics.delta_v_m_s);
+    if validate_results
+        validation = orb2ds.validate_solution(candidate, problem, options);
+        candidate.metrics.achieved_vinf_eci_km_s = validation.achieved_vinf_eci_km_s;
+        candidate.metrics.target_error_km_s = validation.target_error_km_s;
+        current.is_feasible = validation.is_feasible;
+        current.checks = validation.checks;
+        current.position_defect_km = validation.max_position_defect_km;
+        current.velocity_defect_km_s = validation.max_velocity_defect_km_s;
+        current.departure_position_error_km = validation.departure_position_error_km;
+        current.departure_velocity_error_km_s = validation.departure_velocity_error_km_s;
+        current.target_error_km_s = validation.target_error_km_s;
+        current.min_earth_altitude_km = validation.min_earth_altitude_km;
+        current.min_moon_altitude_km = validation.min_moon_altitude_km;
+        current.chained = validation.chained;
+        stage_checks{index} = current;
+    end
     % An unsuccessful zero-objective stage is a starting point for the delta-v solve.
     if (is_delta_v || current.is_feasible) && orb2ds.internal.prefer_transfer(current, best, require_pass)
         best = current;
@@ -152,6 +175,14 @@ for index = 1:numel(vectors)
         end
     end
 end
+timeline_failures = timeline_failures(~cellfun(@isempty, timeline_failures));
+if ~isempty(timeline_failures)
+    if isempty(best)
+        error('orb2ds:SolverTimeline', '%s', strjoin(timeline_failures, ' '));
+    end
+    result.solver.timeline_failures = timeline_failures;
+end
+stage_checks = stage_checks(~cellfun(@isempty, stage_checks));
 result.solver.stage_validation = vertcat(stage_checks{:});
 result.solver.converged = best.solver_converged;
 result.solver.selected_stage = best.stage;

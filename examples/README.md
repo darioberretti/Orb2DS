@@ -156,8 +156,9 @@ to the same database row with different Earth-side geometry.
 The explicit script optimizes one candidate even if `n_starts` is larger than 1.
 Use `find_transfer` with `options.n_starts` for automatic multistart. Selection
 prioritizes convergent delta-v solves by default. Set
-`options.validation.require_pass=true` for lowest validated cost. The explicit
-script processes only the candidate selected in its editor section.
+`options.validation.enabled=true` to run post-solve physical checks, or
+`options.validation.require_pass=true` to also prioritize validated cost. The
+explicit script processes only the candidate selected in its editor section.
 
 Set `cfg.options.output.plot_initial_guess` and `plot_nlp_guess` independently
 to show or hide the two initial views. Both default to false in the library

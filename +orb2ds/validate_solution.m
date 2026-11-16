@@ -26,7 +26,7 @@ if nargin < 3
     supplied = struct();
 end
 options = orb2ds.internal.options(supplied);
-tolerance = rmfield(options.validation, 'require_pass');
+tolerance = rmfield(options.validation, {'enabled', 'require_pass'});
 problem = orb2ds.internal.check_problem(problem);
 solution = orb2ds.internal.check_record(solution);
 orb2ds.internal.same_orbit(problem.orbit, solution.orbit);

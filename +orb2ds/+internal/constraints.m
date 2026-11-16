@@ -49,10 +49,19 @@ end
 for index = 1:count - 1
     state = decoded.states(index, :).';
     duration = decoded.durations(index);
-    if with_gradient
-        [arrival, transition] = orb2ds.internal.propagate(state, [0, duration], model, nlp.options);
-    else
-        arrival = orb2ds.internal.propagate(state, [0, duration], model, nlp.options);
+    try
+        if with_gradient
+            [arrival, transition] = orb2ds.internal.propagate(state, [0, duration], model, nlp.options);
+        else
+            arrival = orb2ds.internal.propagate(state, [0, duration], model, nlp.options);
+        end
+    catch exception
+        if ~strcmp(exception.identifier, 'orb2ds:Integration')
+            rethrow(exception);
+        end
+        failure = MException('orb2ds:Integration', 'Shooting segment %d to %d: %s', ...
+            index, index + 1, exception.message);
+        throw(addCause(failure, exception));
     end
     [burn, burn_jacobian] = orb2ds.internal.impulse_map( ...
         decoded.regularized(index + 1, :), nlp.swapped(index + 1));

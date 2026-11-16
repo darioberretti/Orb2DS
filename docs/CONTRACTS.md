@@ -159,28 +159,68 @@ states and both velocity definitions are checked for consistency on load.
 `find_legs` returns a compact ranked candidate array, copying the orbit-side
 departure data, Earth-side Lambert state/perigee/impulse, lunar asymptotes and
 source/ranking metadata. Assembly does not subsequently look up database rows.
-The matcher uses altitude growth, speed neighbors and deflection screening.
+The default `patching.method = 'ballistic'` uses altitude growth, speed
+neighbors and deflection screening. Select `'powered'` to evaluate a shared
+perilune for two lunar hyperbolas. The powered search uses the incoming
+osculating asymptote at SOI entry and estimates the outgoing asymptote from
+the center-based Earth leg. It resolves both vectors in common inertial axes
+and samples perilune radii between the minimum lunar altitude and the
+encounter radius. At each Earth altitude, the matcher sorts the departure
+replicas by their minimum-radius perilune speeds and evaluates neighbors
+of each Earth leg first. A single shortlist at each Earth altitude shares
+its cutoff across all lunar encounter bins. Binary searches restrict the
+speed interval when this cutoff bounds the weighted cost. Pair-level bounds
+also account for timing, phase, departure and Earth impulses. The powered
+search accepts different incoming and outgoing speeds. It requires
+`impulse_nodes = 'all'` (or the omitted default).
+
+The powered shortlist prioritizes time-cap compliance and exact database
+departure phases. It then sums the departure and Earth impulse magnitudes,
+the lunar impulse magnitude multiplied by `patching.lunar_impulse_weight`,
+and `patching.time_weight_m_s_day` times flight duration. The lunar weight
+is dimensionless and at least 1, with a default of 1. The nonnegative
+flight-time weight defaults to zero and uses m/s per day.
+Waiting contributes to time-cap checks. Lunar epoch mismatch and flight
+duration break score ties. Multiple rows can match the same Earth leg.
+Identical departure replicas share one shortlist entry per Earth leg.
+`find_legs` returns up to `patching.n_candidates` provisional matches.
+For powered searches, `find_transfer` assembles that pool and optimizes up
+to `n_starts` usable guesses in ascending assembled impulse sum with the
+same lunar multiplier. The reported physical delta-v and solver objective
+use the actual impulses. `build_initial_guess` uses the same ranking to select one
+guess. The reported candidate index identifies the original `find_legs`
+match. The SOI entry gap is reported as a diagnostic.
+
+When the initial epoch is specified, both matchers compute each orbit leg's
+lunar SOI entry epoch from the initial epoch, wait and catalogue duration.
+For an ECI target, assign that encounter to the nearest sampled Moon angle
+on the circle. For an Earth–Sun RTH target, assign it to the nearest absolute
+epoch on the bounded Earth-leg grid. Search for velocity matches only within
+the assigned batches. A free spacecraft phase with positive wait can reach
+several batches. With a prescribed spacecraft phase, each waiting replica
+determines one batch.
+
 Initial-event constraints also specialize the construction:
 
 | Supplied initial information | Guess construction |
 |---|---|
 | Neither epoch nor phase | Search all database departure phases; let lunar geometry determine epoch. Waiting is zero. |
-| Phase, waiting forbidden | Search the two closest circular database phase slices; propagate departure at the exact requested phase. Epoch stays free. |
+| Phase, waiting forbidden | Search the two closest circular database phase slices and seed departure at the selected catalogue phase. Epoch stays free. |
 | Phase, waiting allowed | Also search database phases reachable by forward waiting. Epoch stays free. |
-| Epoch, waiting forbidden | Sample lunar encounter epochs consistent with that departure epoch; search all departure phases. |
-| Epoch, waiting allowed | Extend the encounter window and choose a nonnegative wait for lunar alignment, within the active caps. Phase stays free. |
+| Epoch, waiting forbidden | Assign every catalogue departure to the batch at its anchored lunar encounter. Phase stays free. |
+| Epoch, waiting allowed | Include batches reachable during the allowed wait. Phase stays free. |
 | Both, waiting forbidden | Combine the phase shortlist with the anchored encounter-epoch search. |
 | Both, waiting allowed | Also search subsequent orbit revolutions; phase and epoch advance by the same wait. |
 
-Ranking first minimizes estimated time-cap excess, prefers exact database
+Ballistic ranking first minimizes estimated time-cap excess, prefers exact database
 departure phases over borrowed neighboring-phase data, then minimizes lunar
 epoch mismatch and estimated Earth burn. Within one Earth leg, closest lunar
 speed breaks ties. With no initial constraints and inactive duration caps,
 this reduces to Earth-burn ranking. A shortlist uses approximate two-body inbound
 flyby durations; assembly recomputes timing with the finite CR3BP passage.
 
-`patching.n_moon` samples lunar angles for a free epoch and encounter epochs
-for a specified epoch (default 201). With both initial quantities specified,
+`patching.n_moon` samples lunar angles, or absolute encounter epochs for an
+RTH target with a specified departure epoch (default 201). With both initial quantities specified,
 the matcher enumerates waits `w0 + k*T <= max_wait_time_days`, where `w0` is
 the first forward wait to the database phase and `T` is the orbit period.
 With only epoch supplied, the encounter window spans the permitted wait.
@@ -188,7 +228,7 @@ With only phase supplied, the earliest wait to each database phase suffices
 because departure epoch remains free. Transfer and total caps are then
 screened together with waiting; they remain unchanged in the NLP.
 `patching.target_iterations` is a positive integer, default 8, bounding RTH
-arrival-epoch updates in matching and assembly; ECI targets do not use it.
+arrival-epoch updates and finite-patch refinements.
 
 The returned search diagnostics include the shortlisted database phase grid,
 row/replica counts and best timing estimate. A finite search is not a proof
@@ -197,13 +237,29 @@ the lowest-excess guesses are retained without changing the requested cap.
 
 `assemble_transfer` returns compact CR3BP/Earth-two-body propagation recipes,
 SOI entry/perilune/exit and Earth-perigee epochs, impulses and provenance.
-Departure is propagated at the selected phase and its epoch is anchored to
-`initial_time_days + wait_days` when specified. The wait is carried through
-meshing into the NLP. Exact timing-cap excess, lunar epoch mismatch and
+Departure is propagated at the selected catalogue phase so the departure
+state, burn and encounter duration describe the same arc. The NLP enforces
+the requested initial phase through its departure-state constraints. The
+guess epoch is anchored to `initial_time_days + wait_days` when specified.
+The wait is carried through meshing into the NLP. Exact timing-cap excess, lunar epoch mismatch and
 `meets_time_caps` are recorded under `provenance.seed_screening`; RTH also
 reports `target_epoch_error_km_s`. These describe guess construction, not
-physical acceptance. The optimizer must correct all remaining patch defects,
-including those introduced by borrowing departure data from a nearby phase.
+physical acceptance. The optimizer adjusts the initial node to the required
+departure phase and corrects the remaining patch defects.
+
+With a fixed departure epoch, ballistic assembly starts a new tangent Earth
+leg from the finite lunar SOI exit at its anchored epoch. The fit updates
+flight time and terminal impulse. The lunar flyby uses a single continuous
+arc and the exit velocity defect remains part of the shooting guess.
+
+Powered assembly places pre- and post-burn lunar arcs at one perilune with a
+single rotating-frame impulse. It propagates to the finite SOI crossings,
+rebuilds the tangent Earth leg from the exit position and epoch, and
+iterates on the outgoing osculating asymptote and flight timing. A
+reconstructible iterate can retain a residual. The `powered_patch`
+provenance contains the refined total impulse, remaining asymptote and
+entry timing discrepancies, and the SOI position and velocity gaps in
+entry/exit order [km, km/s]. These gaps are diagnostic.
 An unreconstructible finite lunar passage returns empty. `mesh_transfer` samples
 those recipes, retains event anchors and emits the node record below. Patch
 defects remain visible. Optimization never silently rediscretizes that record.
@@ -252,30 +308,51 @@ physical initialization, without solving or requiring a solver dependency.
 `result` contains status, `solution`, `candidate`, `validation`, `constraint_tolerances`, `seed`, compact
 `solver` diagnostics, attempt summaries, active constraints, effective inputs
 (without the database), and provenance. `find_transfer` also reports search
-diagnostics. `options.validation.require_pass` selects the ranking policy for
-stages and starts. It defaults to `false`, which prioritizes convergent delta-v
-solves and then lower cost. When no delta-v solve converges, physically validated
-points take priority, followed by cost. With `true`, the lowest-cost validated
-point takes priority and a rejected record is retained for inspection when none
-passes.
+diagnostics. By default stages and starts are ranked by delta-v solver
+convergence and then cost. Set `options.validation.enabled=true` to check
+returned points after solving. When no delta-v solve converges, this gives
+physically validated points priority, followed by cost.
+`options.validation.require_pass=true` also enables the checks and prioritizes
+the lowest-cost validated point.
 
 The selected record is stored in `solution` if it passes the local and chained
-checks, or in `candidate` if it falls outside the physical criteria. The full
-diagnostics for that record are in `validation`, with compact residuals and
-checks for individual stages in `solver.stage_validation`. Each start summary
-reports its selected point's cost, physical verdict and solver convergence.
+checks. `candidate` holds the selected record when checks are skipped or it
+falls outside the physical criteria. When checks run, `validation` holds the
+selected record's diagnostics and `solver.stage_validation` holds stage
+diagnostics. Otherwise these diagnostics are empty. Each start summary
+reports the initial guess cost, the selected point's cost and flight time,
+physical acceptance and solver convergence. The initial SOI entry state gap
+is the Euclidean norm of the difference between the orbit-side and flyby
+states at the same entry epoch, before meshing. Position and velocity
+components use the model distance and velocity units. Each start also reports the maximum
+constraint violation at the end of the delta-v solve as reported by the
+backend (`constrviolation` for fmincon, `inf_pr` for IPOPT, or NaN if
+unavailable). The solver's final iterate can differ from the selected point.
 `solver.selected_stage` identifies the returned record. `solver.converged`
 reports convergence of its delta-v solve independently of the physical verdict.
 Best-feasible points from fmincon carry the termination status of their solve.
+With fmincon SQP, a failed shooting integration during a trial evaluation
+signals undefined constraints so the line search can try a smaller step.
+If a propagation error ends a start in `find_transfer`, its attempt has
+status `integration_failed` and an `integration_failure` message. Shooting
+errors identify the segment's node indices. The start counts toward `n_starts`
+and its final metrics are NaN. The search continues with the available budget.
+Solver vectors with unordered node epochs are skipped during candidate
+selection. If this ends a start, its status is `invalid_solver_timeline`
+and its `solver_timeline_failure` records the rejected output.
+If a stage record can be retained, `solver.timeline_failures` lists any
+solver outputs skipped for unordered epochs.
 
 | `result.status` | Meaning |
 |---|---|
 | `feasible_converged` | The selected point passes physical checks and its delta-v solve converged. |
 | `feasible_without_optimization_convergence` | The selected point passes physical checks and delta-v convergence was not reached for it. |
-| `transfer_found` | Exploratory selection retained a convergent solve outside the physical criteria. |
-| `candidate_available` | Exploratory selection retained a point outside the physical criteria from a stopped solve. |
+| `transfer_found` | A convergent solve returned a candidate without physical acceptance. |
+| `candidate_available` | A stopped solve returned a candidate without physical acceptance. |
 | `no_validated_solution` | Strict selection found only points outside the physical criteria. |
 | `no_seed_found` | Search found no initial guess to optimize. |
+| `integration_failed` | No start returned a record and the latest start ended with a propagation error. |
+| `invalid_solver_timeline` | No start returned a record and the latest start ended with an invalid timeline. |
 Each stage records its solver/evaluation route, effective native options,
 iterations and stopping information. IPOPT's native `return_status` is retained;
 `Solved_To_Acceptable_Level` is distinguished from `Solve_Succeeded` and does

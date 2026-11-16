@@ -15,6 +15,7 @@ testCase.TestData.solution = data.solution;
 testCase.TestData.problem = data.problem;
 options = orb2ds.defaults.numerical_options();
 options.output.display = false;
+options.validation.enabled = true;
 options.solver.run_feasibility = false;
 options.solver.max_iterations = 0;
 testCase.TestData.options = options;
@@ -25,7 +26,8 @@ solution = testCase.TestData.solution;
 validation = orb2ds.validate_solution(solution, testCase.TestData.problem, testCase.TestData.options);
 verifyTrue(testCase, validation.is_feasible);
 verifyTrue(testCase, validation.chained.is_feasible);
-verifyEqual(testCase, validation.tolerances, rmfield(testCase.TestData.options.validation, 'require_pass'));
+verifyEqual(testCase, validation.tolerances, ...
+    rmfield(testCase.TestData.options.validation, {'enabled', 'require_pass'}));
 verifyLessThan(testCase, validation.target_error_km_s, 1e-5);
 verifyEqual(testCase, validation.delta_v_m_s, ...
     1000 * sum(vecnorm(solution.nodes.delta_v_km_s, 2, 2)), 'AbsTol', 1e-10);
@@ -34,6 +36,20 @@ trajectory = orb2ds.reconstruct_trajectory(solution, struct('samples_per_segment
 verifyEqual(testCase, solution, copy);
 verifyEqual(testCase, numel(trajectory.segments), numel(solution.nodes.time_days) - 1);
 verifyLessThan(testCase, max(vecnorm(trajectory.defects(:, 1:3), 2, 2)), 0.001);
+end
+
+function testPostSolveValidationIsOptIn(testCase)
+options = testCase.TestData.options;
+defaults = orb2ds.defaults.numerical_options();
+options.validation = defaults.validation;
+result = orb2ds.optimize_transfer(testCase.TestData.problem, testCase.TestData.solution, options);
+verifyFalse(testCase, result.inputs.options.validation.enabled);
+verifyEmpty(testCase, fieldnames(result.validation));
+verifyEmpty(testCase, result.solver.stage_validation);
+verifyEmpty(testCase, result.solution);
+verifyNotEmpty(testCase, result.candidate);
+verifyEqual(testCase, result.constraint_tolerances, ...
+    orb2ds.internal.resolve_constraint_tolerances(testCase.TestData.options));
 end
 
 function testAllFourInitialInformationCases(testCase)

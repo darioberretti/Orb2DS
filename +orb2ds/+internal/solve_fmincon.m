@@ -15,6 +15,7 @@ function [vector, value, summary, best_feasible] = solve_fmincon(nlp, initial, s
 %   NLP variables/residuals are normalized. Native options override common
 %   settings, including MaxIterations for either stage. Derivative callbacks
 %   are owned by Orb2DS and cannot be replaced through numerical settings.
+%   SQP backtracks when a trial's shooting constraints are undefined.
 
 options = nlp.options.solver;
 iterations = options.max_iterations;
@@ -52,8 +53,12 @@ if nlp.options.output.display && (strcmp(stage, 'feasibility') || ~options.run_f
         'ConstraintTolerance', sprintf('%s (%s)', test, settings.Algorithm));
 end
 timer = tic;
+nonlinear = @(x) orb2ds.internal.constraints(x, nlp);
+if strcmp(settings.Algorithm, 'sqp')
+    nonlinear = @(x) sqp_constraints(x, nlp, initial);
+end
 [vector, value, flag, output] = fmincon(objective, initial, nlp.A, nlp.b, ...
-    [], [], nlp.lower, nlp.upper, @(x) orb2ds.internal.constraints(x, nlp), settings);
+    [], [], nlp.lower, nlp.upper, nonlinear, settings);
 summary = struct('stage', stage, 'name', 'fmincon', 'evaluation', 'matlab', ...
     'exitflag', flag, 'converged', flag > 0, 'elapsed_seconds', toc(timer));
 for name = {'iterations', 'funcCount', 'constrviolation', 'firstorderopt', ...
@@ -77,6 +82,18 @@ if isfield(output, 'bestfeasible') && ~isempty(output.bestfeasible) && ...
         isfield(output.bestfeasible, 'x') && ~isempty(output.bestfeasible.x) && ...
         ~isequal(output.bestfeasible.x(:), vector(:))
     best_feasible = output.bestfeasible.x(:);
+end
+end
+
+function varargout = sqp_constraints(x, nlp, initial)
+%SQP_CONSTRAINTS Signal an undefined trial value to the SQP line search.
+try
+    [varargout{1:nargout}] = orb2ds.internal.constraints(x, nlp);
+catch exception
+    if ~strcmp(exception.identifier, 'orb2ds:Integration') || nargout ~= 2 || isequal(x, initial)
+        rethrow(exception);
+    end
+    varargout = {nan(size(nlp.inequality_scale)), nan(size(nlp.equality_scale))};
 end
 end
 

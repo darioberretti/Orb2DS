@@ -24,6 +24,20 @@ options.output.keep_attempt_solutions = true;
 options.validation.require_pass = true;
 result = orb2ds.find_transfer(problem, options);
 verifyNumElements(testCase, result.attempts, 2);
+verifyTrue(testCase, all(isfinite([result.attempts.initial_delta_v_m_s])));
+verifyTrue(testCase, all(isfinite([result.attempts.solver_max_constraint_violation])));
+verifyTrue(testCase, all([result.attempts.transfer_days] > 0));
+candidates = orb2ds.find_legs(problem, options);
+model = problem.orbit.model;
+for attempt = reshape(result.attempts, 1, [])
+    transfer = orb2ds.assemble_transfer(problem, candidates(attempt.candidate_index), options);
+    epoch = transfer.events.moon_entry_days;
+    orbit_entry = orb2ds.internal.evaluate_arc(transfer.arcs(1), epoch, model, options);
+    flyby_entry = orb2ds.internal.evaluate_arc(transfer.arcs(2), epoch, model, options);
+    expected = hypot(norm(flyby_entry(1:3) - orbit_entry(1:3)) / model.distance_km, ...
+        norm(flyby_entry(4:6) - orbit_entry(4:6)) / model.velocity_km_s);
+    verifyEqual(testCase, attempt.initial_soi_entry_state_gap_du_vu, expected, 'AbsTol', 1e-12);
+end
 valid = [result.attempts.is_feasible];
 verifyTrue(testCase, any(valid));
 verifyNotEmpty(testCase, result.solution);
@@ -33,6 +47,8 @@ verifyFalse(testCase, isfield(result.inputs.problem, 'database'));
 for index = find(valid)
     verifyNotEmpty(testCase, result.attempts(index).solution);
     verifyFalse(testCase, isfield(result.attempts(index).solution, 'trajectory'));
+    verifyEqual(testCase, result.attempts(index).transfer_days, ...
+        result.attempts(index).solution.timing.transfer_days);
 end
 end
 

@@ -1,16 +1,18 @@
 # Numerical validation
 
-Read `result.status`, solver termination, `result.validation.local_is_feasible`
-and `result.validation.chained` together. `result.solution` requires both local
+Post-solve physical validation is opt-in. Set `options.validation.enabled=true`
+before a solve, or call `orb2ds.validate_solution(record, problem, options)`
+on a returned record. When checks run, read `result.status`, solver termination,
+`result.validation.local_is_feasible` and `result.validation.chained` together.
+`result.solution` requires both local
 and continuously chained physical acceptance. `result.validation.tolerances`
 reports the physical thresholds applied by the validator;
 `result.constraint_tolerances` reports the separate solver residual scales.
 
-With `options.validation.require_pass=false` (default), selection prioritizes
-convergent delta-v solves and compares their costs. A selected point outside
-the physical criteria is retained in `result.candidate` with its full diagnostics.
-Set `require_pass=true` to select by validated cost. Both settings perform the
-same physical checks.
+By default selection prioritizes convergent delta-v solves and compares their
+costs. The selected record goes in `result.candidate`. Set `require_pass=true`
+to enable checks and select by validated cost. A checked record outside the
+physical criteria is retained in `result.candidate` with its diagnostics.
 
 ## Run the tests
 
@@ -39,8 +41,7 @@ compares departure with the supplied orbit and recomputes the achieved Earth
 excess velocity. It locates interior radial extrema for body clearance, checks
 periapsis speeds/accelerations, timing caps and impulse locations.
 
-Physical acceptance tolerances are under `options.validation` and are always
-active. Optional tighter solver settings are under
+Physical acceptance tolerances are under `options.validation`. Optional tighter solver settings are under
 `options.solver.constraint_tolerances` and do not change validation thresholds.
 Vector errors use Euclidean norms. [ACCURACY.md](ACCURACY.md) lists every setting,
 unit and inheritance rule.

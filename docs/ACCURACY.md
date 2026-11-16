@@ -8,6 +8,7 @@ km/s and times local days. Vector tolerances apply to Euclidean norms.
 ## Independent validation
 
 ```matlab
+cfg.options.validation.enabled = false;
 cfg.options.validation.require_pass = false;
 cfg.options.validation.position_km = 1e-3;    % 1 m.
 cfg.options.validation.velocity_km_s = 1e-6;  % 1 mm/s.
@@ -28,12 +29,12 @@ period. Transfer optimization does not repair its reference state or period.
 Mission minimum altitudes and time caps remain in `problem.constraints`;
 validation tolerances specify the numerical error allowed around them.
 
-`require_pass` is a logical scalar that controls record selection. Its default
-`false` prioritizes convergence of the delta-v solve, then cost. Set it to
-`true` to select the lowest-cost physically validated point. Both settings
-evaluate the full physical diagnostics, with thresholds reported in
-`result.validation.tolerances`. Solver residual scales are resolved independently
-of the selection flag.
+`enabled` runs the physical checks after optimization when set to `true`.
+`require_pass=true` enables those checks and selects the lowest-cost physically
+validated point. With both false, selection prioritizes convergence of the
+delta-v solve, then cost. When checks run, `result.validation.tolerances`
+reports the thresholds applied. Solver residual scales are resolved independently
+of both flags.
 
 ## Solver constraint tolerances
 

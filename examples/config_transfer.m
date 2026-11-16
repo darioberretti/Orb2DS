@@ -158,6 +158,9 @@ cfg.options.mesh.refinement.factor = 3;             % Finite factor >=1; local s
 
 %% Leg matching and patched-guess search
 
+cfg.options.patching.method = 'ballistic';    % 'ballistic' or 'powered'.
+cfg.options.patching.time_weight_m_s_day = 0;   % Powered flight-time cost [m/s/day].
+cfg.options.patching.lunar_impulse_weight = 1;  % Powered ranking multiplier for perilune delta-v.
 cfg.options.patching.n_perigee = 24;             % Perigee-circle samples; default 101.
 cfg.options.patching.n_moon = 36;                % Lunar angle/encounter-epoch samples; default 201.
 cfg.options.patching.start_altitude_km = 1000;   % Search starting Earth altitude [km].
@@ -171,8 +174,8 @@ cfg.options.patching.max_lambert_days = 20;      % Earth-leg search horizon [day
 cfg.options.patching.flyby_horizon_days = 5;     % Each finite-flyby integration horizon.
 cfg.options.patching.target_iterations = 8;     % Target-epoch refinement budget; positive integer.
 % With a fixed initial phase, immediate-departure seeds use the two closest
-% database phase slices, but propagate the departure state at the exact
-% requested phase. Waiting also admits reachable database phases. With a
+% database phase slices and propagate from the selected catalogue phase.
+% The optimizer enforces the requested phase. Waiting also admits reachable phases. With a
 % fixed initial epoch, n_moon samples the encounter-epoch window and the
 % matcher prefers lunar alignment at that epoch.
 % When both phase and epoch are known, all waiting replicas w0+k*T within
@@ -192,8 +195,8 @@ cfg.options.patching.target_iterations = 8;     % Target-epoch refinement budget
 
 %% Optimization solver and evaluation route
 
-cfg.options.solver.name = 'ipopt';                % 'fmincon' or 'ipopt'.
-cfg.options.solver.evaluation = 'casadi';           % 'matlab' or 'casadi'.
+cfg.options.solver.name = 'fmincon';                % 'fmincon' or 'ipopt'.
+cfg.options.solver.evaluation = 'matlab';           % 'matlab' or 'casadi'.
 % Supported pairs: fmincon/matlab, ipopt/matlab, ipopt/casadi. Both IPOPT
 % routes require CasADi with its IPOPT plugin on the MATLAB path. Install it
 % separately and addpath its root in your script, before calling the solver.
@@ -205,8 +208,8 @@ cfg.options.solver.max_iterations_feasibility = 200;% Stage-1 iteration budget.
 cfg.options.solver.max_iterations = 2000;           % Delta-v stage iteration budget.
 cfg.options.solver.max_function_evaluations = 1000000; % fmincon-only evaluation budget.
 cfg.options.solver.minimum_segment_days = 1e-6;     % Positive numerical duration resolution.
-cfg.options.solver.constraint_tolerance = 1e-10;    % Scaled residual stopping threshold; default 1e-12.
-cfg.options.solver.optimality_tolerance = 1e-2;     % fmincon optimality / IPOPT scaled NLP tol.
+cfg.options.solver.constraint_tolerance = 1e-6;    % Scaled residual stopping threshold; default 1e-12.
+cfg.options.solver.optimality_tolerance = 1;     % fmincon optimality / IPOPT scaled NLP tol.
 cfg.options.solver.step_tolerance = 1e-12;          % fmincon only; no IPOPT equivalent.
 cfg.options.solver.display = 'iter';               % 'off', 'final', 'iter', 'iter-detailed'.
 cfg.options.solver.fmincon.algorithm = 'sqp';       % Also interior-point, active-set, sqp-legacy.
@@ -241,10 +244,10 @@ cfg.options.solver.cvodes = struct();               % Native CVODES integrator o
 
 %% Independent physical validation
 
-cfg.options.validation.require_pass = false; % Logical. True requires physical acceptance for selection.
-% False prioritizes convergent delta-v solves and then compares cost. Every
-% returned stage is checked and the selected record keeps all diagnostics.
-% Thresholds for independent ode113 propagation in either mode.
+cfg.options.validation.enabled = false;      % True runs the independent post-solve checks.
+cfg.options.validation.require_pass = false; % True enables checks and selects by validated cost.
+% With both flags false, selection prioritizes convergent delta-v solves
+% and then compares cost. These thresholds apply when checks run.
 % Vector errors use Euclidean norms, not separate Cartesian axes. All values
 % must be positive finite scalars; solver constraint settings do not change them.
 % Position covers segment/departure/chained errors and altitude shortfall.

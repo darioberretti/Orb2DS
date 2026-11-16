@@ -36,6 +36,10 @@ options = orb2ds.internal.options(struct('integration', transfer.integration));
 trajectory = struct('model', model, 'events', transfer.events);
 labels = {'Orbit-Moon leg', 'Lunar flyby', 'Moon-Earth leg'};
 colors = [0, 0.447, 0.741; 0.466, 0.674, 0.188; 0.85, 0.325, 0.098];
+if isfield(transfer, 'lunar_impulse_km_s')
+    labels = {'Orbit-Moon leg', 'Lunar flyby inbound', 'Lunar flyby outbound', 'Moon-Earth leg'};
+    colors = colors([1, 2, 2, 3], :);
+end
 for index = 1:numel(transfer.arcs)
     arc = transfer.arcs(index);
     times = linspace(arc.start_days, arc.end_days, samples).';
@@ -53,6 +57,11 @@ if isempty(seed)
     post = orb2ds.internal.frames(inertial, times(end), model, 'to_rotating');
     burns = [transfer.departure_impulse_km_s(:).'; post(4:6) - states(end, 4:6)];
     states(end, :) = post;
+    if isfield(transfer, 'lunar_impulse_km_s')
+        times = [times(1); transfer.events.moon_periapsis_days; times(end)];
+        states = [states(1, :); trajectory.segments{3}.state(1, :); states(end, :)];
+        burns = [burns(1, :); transfer.lunar_impulse_km_s(:).'; burns(end, :)];
+    end
     trajectory.nodes = struct('time_days', times, 'state_post', states, 'delta_v_km_s', burns);
     settings.show_nodes = false;
 else

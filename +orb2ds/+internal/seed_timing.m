@@ -5,17 +5,18 @@ function timing = seed_timing(problem, raw_departure, phase, wait, flight)
 %   timing = orb2ds.internal.seed_timing(problem, raw_departure, phase, wait, flight)
 % DESCRIPTION:
 %   Keep omitted epoch/phase free. A specified epoch anchors departure after
-%   waiting. If phase is free, choose the earliest nonnegative wait that
-%   preserves the sampled lunar geometry; if that exceeds the wait cap,
-%   choose the closer endpoint. A specified phase uses its selected orbit
-%   waiting replica. No physical cap is relaxed when a seed exceeds it.
+%   waiting. With free phase, ECI targets use the earliest wait that preserves
+%   the sampled lunar geometry or the closer endpoint. RTH targets use the
+%   closest permitted wait in absolute time. A specified phase uses its
+%   selected orbit waiting replica. No physical cap is relaxed for a seed.
 % INPUT:
 %   problem        Checked physical problem.
 %   raw_departure  Scalar or column of geometrically matched epochs [days].
 %   phase, wait    Corresponding departure phases [-] and proposed waits [days].
 %   flight         Scalar or column of flight durations [days].
 % OUTPUT:
-%   timing  Arrays of anchored departure_days, phase, wait_days,
+%   timing  Arrays of anchored departure_days, constraint-implied phase
+%           (or the supplied phase if free), wait_days,
 %           transfer_days, total_days, time_excess_days and
 %           moon_phase_mismatch_rad. Excess is zero when all caps are met.
 
@@ -30,7 +31,9 @@ end
 departure = raw_departure;
 mismatch = zeros(size(raw_departure));
 if has_epoch
-    if ~has_phase
+    if ~has_phase && strcmp(problem.target.frame, 'earth_sun_rth')
+        wait = min(max(raw_departure - constraints.initial_time_days, 0), wait_cap);
+    elseif ~has_phase
         lunar_period = 2 * pi * problem.orbit.model.time_days;
         wait = mod(raw_departure - constraints.initial_time_days, lunar_period);
         over = wait > wait_cap;

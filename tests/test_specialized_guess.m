@@ -79,6 +79,21 @@ for anchored = [false, true]
 end
 end
 
+function testOffGridPhaseKeepsCatalogueDepartureForBothMatchers(testCase)
+problem = configured_problem(testCase.TestData.problem, [true, false, false]);
+options = testCase.TestData.options;
+for method = {'ballistic', 'powered'}
+    options.patching.method = method{1};
+    seed = orb2ds.build_initial_guess(problem, options);
+    assertNotEmpty(testCase, seed);
+    check_boundaries(testCase, problem, seed);
+    verifyNotEqual(testCase, seed.timing.departure_phase, problem.constraints.initial_phase);
+    nlp = orb2ds.internal.build_nlp(problem, seed, options);
+    [~, equality] = orb2ds.internal.constraints(nlp.initial, nlp);
+    verifyGreaterThan(testCase, norm(equality(1:3)), 0);
+end
+end
+
 function testOverCapGuessDoesNotRelaxProblem(testCase)
 problem = configured_problem(testCase.TestData.problem, [true, true, false]);
 problem.constraints.max_transfer_time_days = 0.1;
@@ -91,6 +106,22 @@ nlp = orb2ds.internal.build_nlp(problem, seed, testCase.TestData.options);
 verifyEqual(testCase, nlp.problem.constraints, problem.constraints);
 verifyGreaterThan(testCase, max(nlp.A * nlp.initial - nlp.b), 0);
 verifyEqual(testCase, seed.timing.wait_days, 0);
+end
+
+function testFixedEpochBallisticEarthLegStartsAtLunarExit(testCase)
+problem = configured_problem(testCase.TestData.problem, [false, true, false]);
+options = testCase.TestData.options;
+[seed, search] = orb2ds.build_initial_guess(problem, options);
+assertNotEmpty(testCase, seed);
+candidates = orb2ds.find_legs(problem, options);
+transfer = orb2ds.assemble_transfer(problem, candidates(search.selected_candidate), options);
+exit = transfer.events.moon_exit_days;
+verifyEqual(testCase, transfer.arcs(3).initial_days, exit);
+lunar = orb2ds.internal.evaluate_arc(transfer.arcs(2), exit, problem.orbit.model, options);
+earth = orb2ds.internal.evaluate_arc(transfer.arcs(3), exit, problem.orbit.model, options);
+verifyLessThan(testCase, norm(lunar(1:3) - earth(1:3)), 1e-6);
+verifyEqual(testCase, seed.nodes.delta_v_km_s(2:end-1, :), zeros(numel(seed.nodes.time_days)-2, 3));
+check_boundaries(testCase, problem, seed);
 end
 
 function testOmittedEmptyAndZeroWaitProduceTheSameGuess(testCase)
@@ -154,6 +185,58 @@ verifyEqual(testCase, positive_waits, (0.25 + (0:3).') * period, 'AbsTol', 1e-12
 verifyEqual(testCase, departures.phase(departures.wait_days > 0), repmat(0.5, 4, 1));
 end
 
+function testPrescribedGeometryBatches(testCase)
+problem = testCase.TestData.problem;
+problem.constraints.initial_time_days = 0;
+problem.constraints.max_wait_time_days = 0;
+model = problem.orbit.model;
+samples = [0.25; 2; 4; 0.25 + 2*pi];
+inbound = [0.15; 2.4; 4.1; 2*pi-0.05; 2*pi+2.1];
+duration = (inbound - model.moon_angle_ref_rad) * model.time_days;
+departures.wait_days = zeros(size(duration));
+
+% Match the reference circular assignment, including the wrap to phase zero.
+[earth, first, last] = orb2ds.internal.encounter_batches(problem, departures, duration, samples);
+verifyEqual(testCase, first, earth([1; 2; 3; 1; 2]));
+verifyEqual(testCase, last, first);
+
+% A repeating lunar angle belongs to a distinct epoch for an RTH target.
+problem.target.frame = 'earth_sun_rth';
+[earth, first, last] = orb2ds.internal.encounter_batches(problem, departures, duration, samples);
+verifyEqual(testCase, first, earth([1; 2; 3; 4; 4]));
+verifyEqual(testCase, last, first);
+problem.constraints.max_wait_time_days = 30;
+timing = orb2ds.internal.seed_timing(problem, [-0.5; 29], [0; 0], [0; 0], [5; 5]);
+verifyEqual(testCase, timing.wait_days, [0; 29]);
+
+% With free phase, an allowed wait can reach the next batch across the seam.
+problem.target.frame = 'eci';
+problem.constraints.max_wait_time_days = 1.4 * model.time_days;
+[earth, first, last] = orb2ds.internal.encounter_batches(problem, departures, duration, samples(1:3));
+verifyEqual(testCase, first(3), earth(3));
+verifyEqual(testCase, last(3), numel(earth) + earth(1));
+
+% A prescribed spacecraft phase supplies discrete wait replicas instead.
+problem.constraints.initial_phase = 0.25;
+departures.wait_days(3) = 1.4 * model.time_days;
+[earth, first, last] = orb2ds.internal.encounter_batches(problem, departures, duration, samples(1:3));
+verifyEqual(testCase, first(3), earth(1));
+verifyEqual(testCase, last, first);
+end
+
+function testDayThreePoweredGuess(testCase)
+problem = testCase.TestData.problem;
+problem.constraints.initial_time_days = 3;
+problem.target.vinf_km_s = 2 * problem.target.vinf_km_s;
+options = testCase.TestData.options;
+options.patching.method = 'powered';
+options.patching.max_altitude_trials = 1;
+[seed, search] = orb2ds.build_initial_guess(problem, options);
+assertNotEmpty(testCase, seed);
+verifyEqual(testCase, search.candidate_counts, options.patching.n_candidates);
+check_boundaries(testCase, problem, seed);
+end
+
 function problem = configured_problem(problem, flags)
 %CONFIGURED_PROBLEM Specify phase, epoch and permission to wait independently.
 if flags(1)
@@ -186,8 +269,7 @@ if isfield(problem.constraints, 'initial_time_days')
 end
 if isfield(problem.constraints, 'initial_phase')
     verifyEqual(testCase, seed.timing.departure_phase, ...
-        mod(problem.constraints.initial_phase + seed.timing.wait_days / ...
-        problem.orbit.period_days, 1), 'AbsTol', 1e-12);
+        seed.provenance.database_departure_phase, 'AbsTol', 1e-12);
 end
 terminal = orb2ds.internal.frames(seed.nodes.state_post(end, :), ...
     seed.nodes.time_days(end), model, 'to_eci');
@@ -198,6 +280,11 @@ verifyLessThan(testCase, norm(achieved - target), 1e-6);
 transcribed = orb2ds.transcribe_guess(problem, seed, options);
 verifyEqual(testCase, transcribed.nodes.time_days, seed.nodes.time_days, 'AbsTol', 1e-10);
 verifyEqual(testCase, transcribed.nodes.state_post, seed.nodes.state_post, 'AbsTol', 1e-7);
+if isfield(problem.constraints, 'initial_phase')
+    verifyEqual(testCase, transcribed.timing.departure_phase, ...
+        mod(problem.constraints.initial_phase + seed.timing.wait_days / ...
+        problem.orbit.period_days, 1), 'AbsTol', 1e-12);
+end
 verifyEqual(testCase, seed.timing.total_days, ...
     seed.timing.wait_days + seed.timing.transfer_days, 'AbsTol', 1e-10);
 end

@@ -10,10 +10,13 @@ function transfer = assemble_transfer(problem, candidate, supplied)
 %   an Earth-two-body arrival arc. Retain lunar entry/closest-approach/exit
 %   epochs, patch defects and terminal pre/post-impulse states. Frame
 %   transforms use the circular lunar velocity from the supplied model.
-%   Rebuild departure at the requested phase, anchor epochs after the chosen
-%   wait, and update RTH legs at their reconstructed arrival epoch. Exact
+%   Rebuild departure at the matched phase and anchor epochs after the chosen
+%   wait. For a fixed epoch, refit the Earth leg from the finite lunar exit.
+%   Update RTH legs at their reconstructed arrival epoch. Exact
 %   timing-cap excess and remaining lunar alignment error are diagnostics;
 %   patch defects are left for the NLP, not hidden by moving mesh nodes.
+%   Powered candidates use two lunar arcs with a shared perilune, a
+%   vector impulse and a tangent Lambert leg from the finite lunar exit.
 %
 % INPUT:
 %   problem    Current physical problem; no database access is required.
@@ -30,37 +33,35 @@ end
 options = orb2ds.internal.options(supplied);
 problem = orb2ds.internal.check_problem(problem);
 orb2ds.internal.same_orbit(problem.orbit, candidate.orbit);
+% Older matched records can carry the requested phase in orbit_moon.
+if isfield(candidate.provenance, 'database_departure_phase')
+    candidate.orbit_moon.departure_phase = candidate.provenance.database_departure_phase;
+end
+if isfield(candidate.ranking, 'powered_score_km_s')
+    transfer = orb2ds.internal.assemble_powered_transfer(problem, candidate, options);
+    return
+end
 wait = 0;
 if isfield(candidate.orbit_moon, 'wait_days')
     wait = candidate.orbit_moon.wait_days;
 end
-if isfield(problem.constraints, 'initial_phase')
-    candidate.orbit_moon.departure_phase = mod(problem.constraints.initial_phase + ...
-        wait / problem.orbit.period_days, 1);
-end
+has_epoch = isfield(problem.constraints, 'initial_time_days');
 for iteration = 1:options.patching.target_iterations
-    transfer = assemble_arcs(problem, candidate, options);
+    [transfer, exit_state] = assemble_arcs(problem, candidate, options);
     if isempty(transfer)
         return
+    end
+    if has_epoch
+        [transfer, timing] = anchor_ballistic_arcs(problem, transfer, exit_state, candidate, wait, options);
+        if isempty(transfer)
+            return
+        end
+        break
     end
     raw_departure = transfer.arcs(1).start_days;
     flight = transfer.arcs(end).end_days - raw_departure;
     timing = orb2ds.internal.seed_timing(problem, raw_departure, ...
         transfer.departure_phase, wait, flight);
-    shift = timing.departure_days - raw_departure;
-    for index = 1:numel(transfer.arcs)
-        transfer.arcs(index).start_days = transfer.arcs(index).start_days + shift;
-        transfer.arcs(index).end_days = transfer.arcs(index).end_days + shift;
-        transfer.arcs(index).initial_days = transfer.arcs(index).initial_days + shift;
-    end
-    names = fieldnames(transfer.events);
-    for index = 1:numel(names)
-        transfer.events.(names{index}) = transfer.events.(names{index}) + shift;
-    end
-    transfer.wait_days = timing.wait_days;
-    transfer.departure_phase = timing.phase;
-    transfer.provenance.seed_screening = timing;
-    transfer.provenance.seed_screening.meets_time_caps = timing.time_excess_days <= 1e-10;
 
     if ~strcmp(problem.target.frame, 'earth_sun_rth')
         break
@@ -70,7 +71,7 @@ for iteration = 1:options.patching.target_iterations
         candidate.moon_earth.target_epoch_days);
     target = orb2ds.internal.target_eci(problem.target, final_time);
     error = norm(achieved_target - target);
-    transfer.provenance.seed_screening.target_epoch_error_km_s = error;
+    timing.target_epoch_error_km_s = error;
     if error <= 1e-8 || iteration == options.patching.target_iterations
         break
     end
@@ -83,6 +84,10 @@ for iteration = 1:options.patching.target_iterations
     end
     candidate.moon_earth = earth;
 end
+transfer.wait_days = timing.wait_days;
+timing.phase = transfer.departure_phase;
+timing.meets_time_caps = timing.time_excess_days <= 1e-10;
+transfer.provenance.seed_screening = timing;
 if options.output.display
     fprintf('\n[Orb2DS] Initial guess\n\n');
     fprintf('  Departure phase                : %.9g\n', timing.phase);
@@ -95,21 +100,93 @@ if options.output.display
 end
 end
 
-function transfer = assemble_arcs(problem, candidate, options)
+function [transfer, timing] = anchor_ballistic_arcs(problem, transfer, exit_state, candidate, wait, options)
+%ANCHOR_BALLISTIC_ARCS Refit the tangent Earth leg from the shifted exit.
+%   exit_state is the finite SOI crossing in rotating km and km/s. Only the
+%   two rotating arcs use a time shift. Return [] if no tangent fit exists
+%   on the sampled perigee circle.
+model = problem.orbit.model;
+constraints = problem.constraints;
+raw_departure = transfer.arcs(1).start_days;
+raw_exit = transfer.events.moon_exit_days;
+phase = transfer.departure_phase;
+flight = transfer.events.earth_periapsis_days - raw_departure;
+radius = norm(candidate.moon_earth.periapsis_position_km);
+sample = candidate.provenance.perigee_sample;
+target_epoch = candidate.moon_earth.target_epoch_days;
+
+% Recompute the Earth leg if the new duration changes waiting or the RTH target.
+for iteration = 1:options.patching.target_iterations
+    timing = orb2ds.internal.seed_timing(problem, raw_departure, phase, wait, flight);
+    shift = timing.departure_days - raw_departure;
+    exit_time = raw_exit + shift;
+    exit_eci = orb2ds.internal.frames(exit_state.', exit_time, model, 'to_eci');
+    target = orb2ds.internal.target_eci(problem.target, target_epoch);
+    [positions, velocities] = orb2ds.internal.rp_circle_from_vinfplus( ...
+        target, radius, model.gm_earth_km3_s2, options.patching.n_perigee);
+    % If the matched perigee cannot be reached, try its nearest samples first.
+    [~, order] = sort(vecnorm(positions - positions(sample, :), 2, 2));
+    for sample = order.'
+        [duration, first, last, success] = orb2ds.internal.perigee_lambert( ...
+            exit_eci(1:3).', positions(sample, :).', model, options);
+        if success
+            break
+        end
+    end
+    if ~success
+        transfer = [];
+        return
+    end
+    arrival = exit_time + duration;
+    flight = arrival - timing.departure_days;
+    updated = orb2ds.internal.seed_timing(problem, raw_departure, phase, wait, flight);
+    target_error = norm(target - orb2ds.internal.target_eci(problem.target, arrival));
+    if abs(updated.wait_days - timing.wait_days) <= 1e-10 && target_error <= 1e-8
+        break
+    end
+    target_epoch = arrival;
+end
+
+for index = 1:2
+    transfer.arcs(index).start_days = transfer.arcs(index).start_days + shift;
+    transfer.arcs(index).end_days = transfer.arcs(index).end_days + shift;
+    transfer.arcs(index).initial_days = transfer.arcs(index).initial_days + shift;
+end
+transfer.arcs(3) = struct('kind', 'earth_two_body', 'start_days', exit_time, ...
+    'end_days', arrival, 'initial_days', exit_time, 'initial_state', [exit_eci(1:3).'; first]);
+transfer.events = struct('moon_entry_days', transfer.arcs(1).end_days, ...
+    'moon_periapsis_days', transfer.arcs(2).initial_days, 'moon_exit_days', exit_time, ...
+    'earth_periapsis_days', arrival);
+transfer.terminal_impulse_eci_km_s = velocities(sample, :).' - last;
+transfer.provenance.earth_perigee_sample = sample;
+timing.transfer_days = flight;
+timing.total_days = flight + timing.wait_days;
+timing.time_excess_days = updated.time_excess_days;
+if isfield(constraints, 'max_total_time_days')
+    timing.time_excess_days = max(timing.time_excess_days, timing.total_days - constraints.max_total_time_days);
+end
+if strcmp(problem.target.frame, 'earth_sun_rth')
+    timing.target_epoch_error_km_s = target_error;
+end
+end
+
+function [transfer, exit_state] = assemble_arcs(problem, candidate, options)
 %ASSEMBLE_ARCS Reconstruct finite flyby boundaries and the three physical arcs.
 %
 % DESCRIPTION:
 %   Build a mean-speed bisector perilune state and integrate CR3BP motion
 %   to both lunar boundary crossings. Preserve the sampled inertial lunar
-%   azimuth in the raw timeline; initial-event anchoring is applied afterward.
+%   azimuth in the raw timeline. Return the finite rotating exit state too.
 % INPUT:
 %   problem/candidate  Checked request and one compact matched-leg record.
 %   options            Resolved numerical integration/patching settings.
 % OUTPUT:
 %   transfer  Compact km/km/s/day arc recipes, or [] if the finite passage
 %             cannot be reconstructed inside the declared flyby horizon.
+%   exit_state  Finite SOI exit in rotating km and km/s.
 model = problem.orbit.model;
 transfer = [];
+exit_state = [];
 incoming = candidate.orbit_moon.velocity_infinity_rth_km_s(:);
 outgoing = candidate.moon_earth.outgoing_moon_asymptote_km_s(:);
 speed = (norm(incoming) + norm(outgoing)) / 2;
@@ -149,9 +226,10 @@ end
 entry_time = peri_time + backward.xe(end) * model.time_days;
 exit_time = peri_time + forward.xe(end) * model.time_days;
 final_time = peri_time + candidate.moon_earth.duration_days;
-if final_time <= exit_time
+if final_time <= exit_time && ~isfield(problem.constraints, 'initial_time_days')
     return
 end
+exit_state = forward.ye(:, end) .* scale;
 departure_time = entry_time - candidate.orbit_moon.duration_days;
 departure = orb2ds.internal.propagate(problem.orbit.state_ref ./ scale, ...
     [0, candidate.orbit_moon.departure_phase * problem.orbit.period_days / model.time_days], ...

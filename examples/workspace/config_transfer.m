@@ -35,6 +35,7 @@ cfg.constraints.impulse_nodes = 'all';
 %% Search, solver and inspection
 
 % Modest search resolution; omitted options use the library defaults.
+cfg.options.patching.method = 'ballistic'; % Use 'powered' to seed a lunar burn.
 cfg.options.patching.n_perigee = 24;
 cfg.options.patching.n_moon = 36;
 cfg.options.patching.max_altitude_trials = 8;
@@ -46,8 +47,9 @@ cfg.options.solver.display = 'iter';
 cfg.options.output.display = true;
 cfg.options.output.plot_initial_guess = true;
 cfg.options.output.plot_nlp_guess = true;
-cfg.options.validation.require_pass = false; % True selects by physically validated cost.
-% Both settings compute and retain the physical diagnostics.
+cfg.options.validation.enabled = false;      % True runs post-solve physical checks.
+cfg.options.validation.require_pass = false; % True enables checks and selects by validated cost.
+% Solver constraint scales are resolved independently of these switches.
 
 %% Explicit result saving, separate from numerical options
 

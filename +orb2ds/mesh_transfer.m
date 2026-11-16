@@ -21,7 +21,7 @@ function [seed, summary] = mesh_transfer(problem, transfer, supplied)
 %   seed      Canonical schema-1 physical node record. States are post-impulse
 %             rotating km/km/s, epochs local days. Patch position/velocity
 %             defects remain visible to the feasibility stage. The original
-%             departure and terminal impulses initialize the burn variables.
+%             departure, optional lunar and terminal impulses initialize the burns.
 %   summary   Compact spacing, interval and per-leg counts, also retained in
 %             seed.provenance.mesh. Contains no sampled histories.
 
@@ -90,6 +90,9 @@ impulses(end, :) = post(4:6) - states(end, 4:6);
 states(end, :) = post;
 events = transfer.events;
 [~, events.moon_periapsis_node] = min(abs(times - events.moon_periapsis_days));
+if isfield(transfer, 'lunar_impulse_km_s')
+    impulses(events.moon_periapsis_node, :) = transfer.lunar_impulse_km_s(:).';
+end
 [~, events.moon_entry_node] = min(abs(times - events.moon_entry_days));
 [~, events.moon_exit_node] = min(abs(times - events.moon_exit_days));
 events.earth_periapsis_node = numel(times);
@@ -106,6 +109,11 @@ summary = struct('n_nodes', numel(times), 'max_step_limit_days', options.mesh.ma
     'min_step_days', min(diff(times)), 'max_step_days', max(diff(times)), ...
     'refinement', refinement);
 names = {'orbit_to_moon', 'moon_flyby', 'moon_to_earth'};
+labels = {'Orbit to Moon', 'Lunar flyby', 'Moon to Earth'};
+if isfield(transfer, 'lunar_impulse_km_s')
+    names = {'orbit_to_moon', 'moon_flyby_inbound', 'moon_flyby_outbound', 'moon_to_earth'};
+    labels = {'Orbit to Moon', 'Flyby inbound', 'Flyby outbound', 'Moon to Earth'};
+end
 for index = 1:numel(transfer.arcs)
     arc = transfer.arcs(index);
     local = times(times >= arc.start_days & times <= arc.end_days);
@@ -126,7 +134,6 @@ if options.output.display
         fprintf('    Maximum step [days]          : %.6g\n', refinement.max_step_days);
     end
     fprintf('\n  %-20s %8s %22s\n', 'Arc', 'Nodes', 'Maximum step [days]');
-    labels = {'Orbit to Moon', 'Lunar flyby', 'Moon to Earth'};
     for index = 1:numel(summary.arcs)
         arc = summary.arcs(index);
         fprintf('  %-20s %8d %22.6g\n', labels{index}, arc.n_nodes, arc.max_step_days);

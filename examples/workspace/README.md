@@ -52,13 +52,13 @@ choose `solver.evaluation='matlab'` or `'casadi'` in the transfer configuration.
 The configuration file controls library messages, native solver iterations,
 and the two initial-guess figures independently.
 
-`run_transfer.m` prints the status and physical checks, saves the compact
+`run_transfer.m` prints the solver status, saves the compact
 `result` to `Orb2DS_output/transfer_result.mat`, then reconstructs and plots the
 returned solution or unvalidated candidate. `cfg.output.directory` selects
 another destination, relative to config_transfer.m or absolute. Missing folders
-are created automatically. No sampled trajectory or figure is saved inside it. An accepted
-feasibility-stage result does not imply convergence of delta-v optimization;
-inspect solver status and local/chained physical checks separately.
+are created automatically. No sampled trajectory or figure is saved inside it.
+Set `cfg.options.validation.enabled=true` to run physical checks after solving.
+When enabled, inspect the physical verdict and solver stopping status separately.
 The final save block lists the MAT path, record and inspection commands. Use
 `nodes = orb2ds.node_table(result); openvar('nodes');` for all node impulses in
 m/s, and `orb2ds.print_result(result)` for the stored physical report.

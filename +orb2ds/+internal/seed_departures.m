@@ -5,8 +5,8 @@ function departures = seed_departures(problem, entries)
 %   departures = orb2ds.internal.seed_departures(problem, entries)
 % DESCRIPTION:
 %   Include the two closest circular phase slices for immediate departure
-%   when a phase is specified. Their burn/duration data approximate that
-%   exact phase. Also include database phases reachable by waiting. With a
+%   when a phase is specified. Each guess keeps its catalogued phase and
+%   encounter data. Also include database phases reachable by waiting. With a
 %   specified epoch, search additional full orbit revolutions within
 %   max_wait_time_days. A free epoch needs only the earliest wait for each
 %   phase because its geometry remains independent.
@@ -33,7 +33,7 @@ distance = abs(mod(grid - phase + 0.5, 1) - 0.5);
 nearest = grid(order(1:min(2, numel(grid))));
 immediate = find(ismember(phases, nearest));
 departures.row = immediate;
-departures.phase = repmat(phase, size(immediate));
+departures.phase = phases(immediate);
 departures.wait_days = zeros(size(immediate));
 
 wait_cap = constraints.max_wait_time_days;

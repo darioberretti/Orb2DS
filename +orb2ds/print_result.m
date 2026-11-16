@@ -87,7 +87,11 @@ switch result.status
         fprintf('  Status                         : %s\n', result.status);
 end
 answers = {'NO', 'YES'};
-fprintf('  Physical acceptance required   : %s\n', answers{1 + require_pass});
+if isfield(policy, 'enabled') && ~policy.enabled
+    fprintf('  Post-solve validation          : SKIPPED\n');
+else
+    fprintf('  Physical acceptance required   : %s\n', answers{1 + require_pass});
+end
 stage = 'NONE';
 if isfield(result.solver, 'selected_stage') && ~isempty(result.solver.selected_stage)
     stage = result.solver.selected_stage;

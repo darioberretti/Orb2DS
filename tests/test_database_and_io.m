@@ -22,13 +22,18 @@ end
 function testGenerateReuseAndMismatch(testCase)
 filename = fullfile(testCase.TestData.directory, 'generated', 'encounters.mat');
 options.database = struct('phases', [0, 0.25, 0.5, 0.75], ...
-    'impulses_m_s', [0, 20], 'azimuths_rad', (0:3) * pi / 2, ...
+    'impulses_m_s', [0, 20], 'azimuths_rad', (0:4) * pi / 2, ...
     'elevations_rad', 0, 'horizon_days', 20);
 options.output.display = false;
 database = orb2ds.build_orbit_moon_database(testCase.TestData.orbit, filename, options);
 verifyGreaterThan(testCase, numel(database.encounters.row_id), 0);
+verifyEqual(testCase, database.generation.grid.azimuths_rad, (0:3) * pi / 2);
+entries = database.encounters;
+keys = [entries.departure_phase, entries.delta_v_km_s, entries.duration_days];
+verifyEqual(testCase, keys, unique(keys, 'rows', 'stable'));
 verifyTrue(testCase, isfile(filename));
 file_info = dir(filename);
+options.database.azimuths_rad(end) = [];
 reused = orb2ds.build_orbit_moon_database(testCase.TestData.orbit, filename, options);
 verifyEqual(testCase, database, reused);
 verifyEqual(testCase, dir(filename).datenum, file_info.datenum);

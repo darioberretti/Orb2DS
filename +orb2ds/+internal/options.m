@@ -4,6 +4,13 @@ function options = options(supplied)
 options = orb2ds.internal.merge_options( ...
     orb2ds.defaults.numerical_options(), supplied, 'options');
 validateattributes(options.validation.require_pass, {'logical'}, {'scalar'});
+validateattributes(options.validation.enabled, {'logical'}, {'scalar'});
+options.validation.enabled = options.validation.enabled || options.validation.require_pass;
+options.patching.method = validatestring(options.patching.method, {'ballistic', 'powered'});
+validateattributes(options.patching.time_weight_m_s_day, {'double'}, ...
+    {'scalar', 'real', 'finite', 'nonnegative'});
+validateattributes(options.patching.lunar_impulse_weight, {'double'}, ...
+    {'scalar', 'real', 'finite', '>=', 1});
 validateattributes(options.patching.target_iterations, {'double'}, ...
     {'scalar', 'real', 'finite', 'integer', 'positive'});
 orb2ds.internal.resolve_constraint_tolerances(options);

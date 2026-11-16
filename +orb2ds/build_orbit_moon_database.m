@@ -10,6 +10,8 @@ function database = build_orbit_moon_database(orbit, filename, supplied)
 %   impact. Use the supplied model for the phase/impulse grid and encounter
 %   events. Local encounter-boundary velocities and Kepler incoming
 %   asymptotes are stored as separate quantities.
+%   Azimuths wrap to [0, 2*pi) and each distinct Cartesian burn is propagated
+%   once per phase sample.
 %   A same-name archive is reused only when orbit, grid and integration
 %   settings match. Existing files are never overwritten.
 %
@@ -25,7 +27,10 @@ if nargin < 3
 end
 options = orb2ds.internal.options(supplied);
 orbit = orb2ds.internal.check_orbit(orbit);
-generation = struct('grid', options.database, 'integration', options.integration);
+grid = options.database;
+validateattributes(grid.azimuths_rad, {'double'}, {'vector', 'real', 'finite'});
+grid.azimuths_rad = unique(mod(grid.azimuths_rad, 2 * pi), 'stable');
+generation = struct('grid', grid, 'integration', options.integration);
 if isfile(filename)
     database = orb2ds.load_orbit_moon_database(filename);
     orb2ds.internal.same_orbit(database.orbit, orbit);
@@ -52,10 +57,8 @@ if ~isempty(folder) && ~isfolder(folder)
     end
 end
 model = orbit.model;
-grid = options.database;
 validateattributes(grid.phases, {'double'}, {'vector', 'real', 'finite', '>=', 0, '<=', 1});
 validateattributes(grid.impulses_m_s, {'double'}, {'vector', 'real', 'finite', 'nonnegative'});
-validateattributes(grid.azimuths_rad, {'double'}, {'vector', 'real', 'finite'});
 validateattributes(grid.elevations_rad, {'double'}, {'vector', 'real', 'finite'});
 validateattributes(grid.horizon_days, {'double'}, {'scalar', 'positive', 'finite'});
 scales = [repmat(model.distance_km, 3, 1); repmat(model.velocity_km_s, 3, 1)];
@@ -75,6 +78,7 @@ assert(norm((closed(1:3) - reference(1:3)) * model.distance_km) <= ...
 impulses = [magnitude(:) .* cos(azimuth(:)) .* cos(elevation(:)), ...
     magnitude(:) .* sin(azimuth(:)) .* cos(elevation(:)), ...
     magnitude(:) .* sin(elevation(:))];
+impulses = unique(impulses, 'rows', 'stable');
 rows = cell(numel(grid.phases) * size(impulses, 1), 1);
 task = 0;
 ode_options = odeset('RelTol', options.integration.relative_tolerance, ...
@@ -101,12 +105,16 @@ for phase = mod(grid.phases(:).', 1)
             any(solution.ie(end) == [2, 3]);
         assert(solution.x(end) == horizon || terminated, 'orb2ds:Integration', ...
             'A departure integration stopped before its horizon without a terminal event.');
-        if ~isfield(solution, 'ie')
+        if ~isfield(solution, 'ie') || isempty(solution.ie)
             rows{task} = zeros(0, 17);
             continue
         end
         hits = find(solution.ie == 1 & solution.xe > 0);
         count = numel(hits);
+        if count == 0
+            rows{task} = zeros(0, 17);
+            continue
+        end
         states = solution.ye(:, hits).' .* scales.';
         [local, asymptote] = orb2ds.internal.moon_asymptote(states, model);
         rows{task} = [repmat(phase, count, 1), ...

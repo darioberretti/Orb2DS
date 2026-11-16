@@ -113,18 +113,15 @@ generation and transfer through those explicit files.
 
 ## Results and reconstruction
 
-`options.validation.require_pass` defaults to `false`. This prioritizes
-convergent delta-v solves and compares their costs. Set it to `true` to select
-the lowest-cost physically validated point. A selected point passing local and
-chained checks is stored in `result.solution`. A selected point outside the
-criteria is stored in `result.candidate`. Both carry full diagnostics in
-`result.validation`.
-Inspect `result.status`, `result.validation.checks`, solver stopping information
-and `result.validation.chained` separately. Chained propagation applies every
-burn continuously without resets to stored nodes; it has its own feasibility
-flag; both checks are required for acceptance. `result.validation.tolerances`
-lists physical acceptance thresholds; `result.constraint_tolerances` lists the
-separate solver residual scales. See [validation and tolerance meanings](docs/VALIDATION.md).
+By default Orb2DS prioritizes convergent delta-v solves, compares their costs,
+and stores the selected record in `result.candidate`. Set
+`options.validation.enabled = true` to check local continuity and propagate
+the trajectory continuously after solving. Set `options.validation.require_pass = true`
+to run those checks and give physically validated records selection priority.
+A record passing both checks is stored in `result.solution`, and
+`result.validation` contains the physical diagnostics when checks run.
+`result.constraint_tolerances` gives the separate solver residual scales.
+See [validation and tolerance meanings](docs/VALIDATION.md).
 
 ```matlab
 record = result.solution;

@@ -30,13 +30,12 @@ include the required minimum and allowed numerical shortfall. Stored record and
 configuration units remain km, km/s and days. Display conversions do not change
 validation thresholds or solver settings.
 
-With `validation.require_pass=false` (default), the automatic report shows the
-transfer summary. The physical acceptance thresholds appear when
-`validation.require_pass=true`. A convergent selected solve outside the physical criteria
-reports `Transfer found`. A stopped solve with such a point reports
-`Candidate available`. The selected record, residuals and physical verdicts are
-stored in `result`. Call `orb2ds.print_result(result)` for the full physical
-validation and continuous propagation report in either mode.
+The automatic report shows the solver result and whether post-solve validation
+was skipped. `validation.require_pass=true` also shows physical acceptance
+thresholds. A convergent selected solve without physical acceptance reports
+`Transfer found`. A stopped solve with a retained point reports
+`Candidate available`. Call `orb2ds.print_result(result)` for the full report
+when validation diagnostics have been stored.
 
 ## Find the data
 
