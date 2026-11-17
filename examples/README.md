@@ -128,7 +128,7 @@ The numbered editor sections can be executed one at a time:
    the two estimated endpoint burns and the lunar speed mismatch.
 3. `candidate_index` chooses one returned match. Assembly reconstructs its finite
    lunar passage and physical event timeline. No database row is selected directly.
-   The first plot shows the three assembled physical legs without shooting nodes.
+   The first plot shows the assembled arcs without shooting nodes.
 4. `mesh_transfer` creates nodes and returns a spacing summary. The configuration
    controls the global maximum step and local refinement from before lunar
    periapsis through Earth periapsis.

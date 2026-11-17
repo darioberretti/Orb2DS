@@ -10,7 +10,6 @@ addpath(root);
 testCase.TestData.restore_path = onCleanup(@() path(old_path));
 [problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_transfer.m'));
 options.output.display = false;
-options.patching.method = 'powered';
 options.patching.n_perigee = 12;
 options.patching.n_moon = 18;
 testCase.TestData.problem = problem;
@@ -54,8 +53,9 @@ function testPoweredGuessThroughPublicStages(testCase)
 problem = testCase.TestData.problem;
 options = testCase.TestData.options;
 options.patching.max_altitude_trials = 1;
+options.patching = rmfield(options.patching, 'lunar_flyby_matching_policy');
 [candidates, diagnostics] = orb2ds.find_legs(problem, options);
-verifyEqual(testCase, diagnostics.settings.method, 'powered');
+verifyEqual(testCase, diagnostics.settings.lunar_flyby_matching_policy, 'powered');
 assertNotEmpty(testCase, candidates);
 verifyGreaterThanOrEqual(testCase, diagnostics.powered_pairs_evaluated, numel(candidates));
 verifyLessThan(testCase, diagnostics.powered_pairs_evaluated, ...
@@ -89,7 +89,21 @@ nlp = orb2ds.internal.build_nlp(problem, seed, options);
 verifyTrue(testCase, nlp.active_impulses(node));
 
 problem.constraints.impulse_nodes = 'endpoints';
+options.patching.lunar_flyby_matching_policy = "powered";
 verifyError(testCase, @() orb2ds.find_legs(problem, options), 'orb2ds:PoweredFlyby');
+end
+
+function testMatchingPolicyDefaultsToNaturalForEndpointOnlyImpulses(testCase)
+problem = testCase.TestData.problem;
+problem.constraints.impulse_nodes = 'endpoints';
+options = testCase.TestData.options;
+options.patching = rmfield(options.patching, 'lunar_flyby_matching_policy');
+options.output.plot_initial_guess = false;
+[seed, search] = orb2ds.build_initial_guess(problem, options);
+assertNotEmpty(testCase, seed);
+verifyEqual(testCase, search.settings.lunar_flyby_matching_policy, 'natural');
+verifyEqual(testCase, seed.nodes.delta_v_km_s(2:end-1, :), ...
+    zeros(size(seed.nodes.delta_v_km_s, 1)-2, 3));
 end
 
 function testAnchoredRotatingTarget(testCase)

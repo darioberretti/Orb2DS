@@ -1,12 +1,18 @@
-function options = options(supplied)
+function options = options(supplied, constraints)
 %OPTIONS Resolve numerical defaults and validate shared leaf types.
+%   Matching callers can supply checked constraints to select a compatible default.
 
-options = orb2ds.internal.merge_options( ...
-    orb2ds.defaults.numerical_options(), supplied, 'options');
+defaults = orb2ds.defaults.numerical_options();
+if nargin > 1 && isfield(constraints, 'impulse_nodes') && ...
+        strcmp(constraints.impulse_nodes, 'endpoints')
+    defaults.patching.lunar_flyby_matching_policy = 'natural';
+end
+options = orb2ds.internal.merge_options(defaults, supplied, 'options');
 validateattributes(options.validation.require_pass, {'logical'}, {'scalar'});
 validateattributes(options.validation.enabled, {'logical'}, {'scalar'});
 options.validation.enabled = options.validation.enabled || options.validation.require_pass;
-options.patching.method = validatestring(options.patching.method, {'ballistic', 'powered'});
+options.patching.lunar_flyby_matching_policy = validatestring( ...
+    options.patching.lunar_flyby_matching_policy, {'powered', 'natural'});
 validateattributes(options.patching.time_weight_m_s_day, {'double'}, ...
     {'scalar', 'real', 'finite', 'nonnegative'});
 validateattributes(options.patching.lunar_impulse_weight, {'double'}, ...

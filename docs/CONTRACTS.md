@@ -159,11 +159,16 @@ states and both velocity definitions are checked for consistency on load.
 `find_legs` returns a compact ranked candidate array, copying the orbit-side
 departure data, Earth-side Lambert state/perigee/impulse, lunar asymptotes and
 source/ranking metadata. Assembly does not subsequently look up database rows.
-The default `patching.method = 'ballistic'` uses altitude growth, speed
-neighbors and deflection screening. Select `'powered'` to evaluate a shared
-perilune for two lunar hyperbolas. The powered search uses the incoming
-osculating asymptote at SOI entry and estimates the outgoing asymptote from
-the center-based Earth leg. It resolves both vectors in common inertial axes
+`options.patching.lunar_flyby_matching_policy` accepts `"powered"` and
+`"natural"`. The default is `"powered"` with `impulse_nodes = 'all'` and
+`"natural"` with `impulse_nodes = 'endpoints'`. An explicit `"powered"`
+matching request requires a lunar impulse node. Natural matching screens
+lunar asymptotic speed and available deflection and seeds a continuous flyby.
+The optimizer applies the separately configured `impulse_nodes` policy.
+
+Powered matching evaluates a shared perilune for two lunar hyperbolas. It uses
+the incoming osculating asymptote at SOI entry and estimates the outgoing
+asymptote from the center-based Earth leg. It resolves both vectors in common inertial axes
 and samples perilune radii between the minimum lunar altitude and the
 encounter radius. At each Earth altitude, the matcher sorts the departure
 replicas by their minimum-radius perilune speeds and evaluates neighbors
@@ -171,8 +176,7 @@ of each Earth leg first. A single shortlist at each Earth altitude shares
 its cutoff across all lunar encounter bins. Binary searches restrict the
 speed interval when this cutoff bounds the weighted cost. Pair-level bounds
 also account for timing, phase, departure and Earth impulses. The powered
-search accepts different incoming and outgoing speeds. It requires
-`impulse_nodes = 'all'` (or the omitted default).
+search accepts different incoming and outgoing speeds.
 
 The powered shortlist prioritizes time-cap compliance and exact database
 departure phases. It then sums the departure and Earth impulse magnitudes,
@@ -247,7 +251,7 @@ reports `target_epoch_error_km_s`. These describe guess construction, not
 physical acceptance. The optimizer adjusts the initial node to the required
 departure phase and corrects the remaining patch defects.
 
-With a fixed departure epoch, ballistic assembly starts a new tangent Earth
+With a fixed departure epoch, natural assembly starts a new tangent Earth
 leg from the finite lunar SOI exit at its anchored epoch. The fit updates
 flight time and terminal impulse. The lunar flyby uses a single continuous
 arc and the exit velocity defect remains part of the shooting guess.

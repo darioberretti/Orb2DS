@@ -12,6 +12,7 @@ reference = load(fullfile(root, 'tests', 'fixtures', 'validated_transfer.mat'));
 problem = reference.problem;
 problem.database = orb2ds.load_orbit_moon_database(fullfile(root, 'data', 'orbit_moon_example.mat'));
 options = orb2ds.defaults.numerical_options();
+options.patching.lunar_flyby_matching_policy = "natural";
 options.output.display = false;
 options.patching.n_perigee = 24;
 options.patching.n_moon = 36;

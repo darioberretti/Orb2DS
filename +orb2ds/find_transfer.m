@@ -7,7 +7,7 @@ function result = find_transfer(problem, supplied)
 % DESCRIPTION:
 %   Use the same directly callable scientific stages as the explicit API.
 %   Single-start is the default. Powered matching assembles the shortlist and
-%   refines the guesses with the lowest weighted burn. Ballistic matching refines
+%   refines the guesses with the lowest weighted burn. Natural matching refines
 %   guesses in match order. Compare convergent delta-v solves by cost.
 %   validation.require_pass enables validation and selects by validated cost.
 %   A propagation or solver-timeline failure can end an individual start.
@@ -26,13 +26,13 @@ function result = find_transfer(problem, supplied)
 if nargin < 2
     supplied = struct();
 end
-options = orb2ds.internal.options(supplied);
 problem = orb2ds.internal.check_problem(problem);
+options = orb2ds.internal.options(supplied, problem.constraints);
 orb2ds.internal.check_solver(options);
 assert(options.patching.n_candidates >= options.n_starts, 'orb2ds:Options', ...
     'patching.n_candidates must be at least n_starts.');
 [candidates, diagnostics] = orb2ds.find_legs(problem, options);
-powered = strcmp(options.patching.method, 'powered');
+powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
 order = 1:numel(candidates);
 if powered
     [order, transfers] = orb2ds.internal.rank_powered_guesses(problem, candidates, options);

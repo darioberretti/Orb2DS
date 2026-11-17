@@ -13,6 +13,7 @@ defaults = orb2ds.defaults.numerical_options();
 options.solver = defaults.solver;
 options.output = defaults.output;
 options.output.display = false;
+options.patching.lunar_flyby_matching_policy = "natural";
 [candidates, diagnostics] = orb2ds.find_legs(problem, options);
 assert(~isempty(candidates), 'The canonical example search must return candidates.');
 transfer = [];

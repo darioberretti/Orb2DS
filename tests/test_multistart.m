@@ -17,6 +17,7 @@ options.integration = defaults.integration;
 options.mesh = defaults.mesh;
 options.output = defaults.output;
 options.n_starts = 2;
+options.patching.lunar_flyby_matching_policy = "natural";
 options.solver.max_iterations = 0;
 options.output.display = false;
 options.solver.display = 'off';

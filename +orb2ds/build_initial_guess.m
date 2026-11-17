@@ -7,7 +7,7 @@ function [seed, diagnostics] = build_initial_guess(problem, supplied)
 %   problem/options  Same contracts as find_transfer.
 % OUTPUT:
 %   seed         Lowest weighted-cost powered guess or first usable
-%                ballistic match, or empty when no guess is usable.
+%                natural match, or empty when no guess is usable.
 %                Matching and assembly account for the initial event, waiting,
 %                time caps and target frame. provenance.seed_screening reports
 %                remaining timing/geometry mismatch; it is not validation.
@@ -17,11 +17,12 @@ function [seed, diagnostics] = build_initial_guess(problem, supplied)
 if nargin < 2
     supplied = struct();
 end
-options = orb2ds.internal.options(supplied);
+problem = orb2ds.internal.check_problem(problem);
+options = orb2ds.internal.options(supplied, problem.constraints);
 [candidates, diagnostics] = orb2ds.find_legs(problem, options);
 seed = [];
 diagnostics.selected_candidate = [];
-powered = strcmp(options.patching.method, 'powered');
+powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
 order = 1:numel(candidates);
 if powered
     [order, transfers] = orb2ds.internal.rank_powered_guesses(problem, candidates, options);

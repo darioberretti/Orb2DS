@@ -158,7 +158,8 @@ cfg.options.mesh.refinement.factor = 3;             % Finite factor >=1; local s
 
 %% Leg matching and patched-guess search
 
-cfg.options.patching.method = 'ballistic';    % 'ballistic' or 'powered'.
+% With endpoint-only impulses, select "natural" or omit this field.
+cfg.options.patching.lunar_flyby_matching_policy = "powered";
 cfg.options.patching.time_weight_m_s_day = 0;   % Powered flight-time cost [m/s/day].
 cfg.options.patching.lunar_impulse_weight = 1;  % Powered ranking multiplier for perilune delta-v.
 cfg.options.patching.n_perigee = 24;             % Perigee-circle samples; default 101.
@@ -166,7 +167,7 @@ cfg.options.patching.n_moon = 36;                % Lunar angle/encounter-epoch s
 cfg.options.patching.start_altitude_km = 1000;   % Search starting Earth altitude [km].
 cfg.options.patching.altitude_factor = 1.1;      % Multiplicative altitude growth (>1).
 cfg.options.patching.max_altitude_trials = 8;    % Search budget; default 80 trials.
-cfg.options.patching.speed_tolerance_km_s = 0.05;% Lunar asymptotic-speed match tolerance.
+cfg.options.patching.speed_tolerance_km_s = 0.05;% Natural lunar speed tolerance [km/s].
 cfg.options.patching.n_candidates = 10;         % Retained ranked matches; >= n_starts.
 cfg.options.patching.lambert_tolerance = 1e-6;   % Tangency |v dot r|/(|v||r|), dimensionless.
 cfg.options.patching.lambert_iterations = 60;    % Maximum bisection iterations.

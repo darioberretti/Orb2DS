@@ -70,7 +70,7 @@ supplied = struct();
 if isfield(cfg, 'options')
     supplied = cfg.options;
 end
-options = orb2ds.internal.options(supplied);
+options = orb2ds.internal.options(supplied, problem.constraints);
 output = struct('directory', 'Orb2DS_output', 'filename', 'transfer_result.mat', ...
     'overwrite_without_prompt', false);
 if isfield(cfg, 'output')

@@ -49,7 +49,12 @@ zero `max_wait_time_days` disables it. A positive finite value enables waiting
 up to that limit. The seed's phase/time origin does not fix departure phase
 or epoch, and supplied waiting/flight/total-duration caps all apply. Omitted
 numerical settings use `orb2ds.defaults.numerical_options`.
-Unknown library settings are rejected. See the [input/output contracts](docs/CONTRACTS.md).
+Unknown library settings are rejected.
+
+Powered lunar flyby matching is the default when a lunar burn is allowed.
+Set `options.patching.lunar_flyby_matching_policy = "natural"` to seed a flyby
+without a lunar burn. Endpoint-only impulse constraints default to natural
+matching. See the [input/output contracts](docs/CONTRACTS.md).
 
 Integration accuracy, initial shooting-node spacing, solver stopping criteria
 and physical validation tolerances have explicit settings. See

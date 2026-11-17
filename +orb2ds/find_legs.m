@@ -9,9 +9,9 @@ function [candidates, diagnostics] = find_legs(problem, supplied)
 %   lunar speed/turning angles.
 %   Shortlist departure phases and expand allowed orbit-wait replicas. With
 %   a specified epoch, group both legs by lunar geometry before matching.
-%   Rank ballistic matches by timing and estimated Earth burn.
-%   patching.method='powered' searches powered conics and compares the
-%   sum of the burn estimates, with an optional flight-duration cost.
+%   Powered matching compares the sum of the estimated burns, with an
+%   optional flight-duration cost. Natural matching ranks viable flybys by
+%   timing and estimated Earth burn.
 %   Local encounter-boundary velocity and incoming asymptotic velocity are
 %   separate quantities. All calculations use the supplied physical model.
 %
@@ -28,9 +28,9 @@ function [candidates, diagnostics] = find_legs(problem, supplied)
 if nargin < 2
     supplied = struct();
 end
-options = orb2ds.internal.options(supplied);
 problem = orb2ds.internal.check_problem(problem);
-powered = strcmp(options.patching.method, 'powered');
+options = orb2ds.internal.options(supplied, problem.constraints);
+powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
 if powered
     assert(~isfield(problem.constraints, 'impulse_nodes') || ...
         ~strcmp(problem.constraints.impulse_nodes, 'endpoints'), ...
@@ -52,7 +52,8 @@ diagnostics = struct('altitudes_km', [], 'candidate_counts', [], ...
     'settings', options.patching, 'database_rows', numel(database.encounters.row_id));
 if options.output.display
     fprintf('\n[Orb2DS] Leg matching\n\n');
-    fprintf('  Patching method                : %s\n', options.patching.method);
+    fprintf('  Lunar flyby matching policy    : %s\n', ...
+        options.patching.lunar_flyby_matching_policy);
     fprintf('  Database encounters            : %d\n', diagnostics.database_rows);
 end
 if ~any(all(isfinite(database.encounters.velocity_infinity_rth_km_s), 2))
@@ -125,7 +126,7 @@ if isfield(problem.constraints, 'min_moon_altitude_km')
 end
 candidates = struct([]);
 pairs_evaluated = 0;
-powered = strcmp(options.patching.method, 'powered');
+powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
 earth_legs = cell(options.patching.n_moon * size(positions, 1), 1);
 perigee_samples = zeros(size(earth_legs));
 leg_count = 0;

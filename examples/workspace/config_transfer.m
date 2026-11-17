@@ -35,7 +35,8 @@ cfg.constraints.impulse_nodes = 'all';
 %% Search, solver and inspection
 
 % Modest search resolution; omitted options use the library defaults.
-cfg.options.patching.method = 'ballistic'; % Use 'powered' to seed a lunar burn.
+% With endpoint-only impulses, select "natural" or omit this field.
+cfg.options.patching.lunar_flyby_matching_policy = "powered";
 cfg.options.patching.n_perigee = 24;
 cfg.options.patching.n_moon = 36;
 cfg.options.patching.max_altitude_trials = 8;

@@ -15,6 +15,7 @@ problem = struct('orbit', database.orbit, 'database', database, ...
     'constraints', struct('max_transfer_time_days', 50, ...
     'min_earth_altitude_km', 1000, 'min_moon_altitude_km', 100));
 options = orb2ds.defaults.numerical_options();
+options.patching.lunar_flyby_matching_policy = "natural";
 options.output.display = false;
 options.patching.n_perigee = 24;
 options.patching.n_moon = 36;
@@ -82,8 +83,8 @@ end
 function testOffGridPhaseKeepsCatalogueDepartureForBothMatchers(testCase)
 problem = configured_problem(testCase.TestData.problem, [true, false, false]);
 options = testCase.TestData.options;
-for method = {'ballistic', 'powered'}
-    options.patching.method = method{1};
+for policy = ["natural", "powered"]
+    options.patching.lunar_flyby_matching_policy = policy;
     seed = orb2ds.build_initial_guess(problem, options);
     assertNotEmpty(testCase, seed);
     check_boundaries(testCase, problem, seed);
@@ -229,7 +230,7 @@ problem = testCase.TestData.problem;
 problem.constraints.initial_time_days = 3;
 problem.target.vinf_km_s = 2 * problem.target.vinf_km_s;
 options = testCase.TestData.options;
-options.patching.method = 'powered';
+options.patching.lunar_flyby_matching_policy = "powered";
 options.patching.max_altitude_trials = 1;
 [seed, search] = orb2ds.build_initial_guess(problem, options);
 assertNotEmpty(testCase, seed);
