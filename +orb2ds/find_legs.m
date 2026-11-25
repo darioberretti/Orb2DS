@@ -116,7 +116,7 @@ function [candidates, pairs_evaluated] = evaluate_altitude(problem, database, de
 %   pairs_evaluated   Number of pairs scored by the powered conic model.
 model = problem.orbit.model;
 target = orb2ds.internal.target_eci(problem.target, 0);
-[positions, velocities] = orb2ds.internal.rp_circle_from_vinfplus( ...
+[circle.positions, circle.velocities] = orb2ds.internal.rp_circle_from_vinfplus( ...
     target, model.earth_radius_km + height, model.gm_earth_km3_s2, options.patching.n_perigee);
 entries = database.encounters;
 rows = departures.row;
@@ -127,7 +127,7 @@ end
 candidates = struct([]);
 pairs_evaluated = 0;
 powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
-earth_legs = cell(options.patching.n_moon * size(positions, 1), 1);
+earth_legs = cell(options.patching.n_moon * size(circle.positions, 1), 1);
 perigee_samples = zeros(size(earth_legs));
 leg_count = 0;
 epoch_angles = [];
@@ -144,9 +144,8 @@ if is_rth && isfield(problem.constraints, 'initial_time_days') && ~isempty(rows)
     epoch_angles = model.moon_angle_ref_rad + ...
         unique(linspace(earliest, latest, options.patching.n_moon)) / model.time_days;
 end
-for perigee = 1:size(positions, 1)
-    earth_position = positions(perigee, :).';
-    earth_post_velocity = velocities(perigee, :).';
+for perigee = 1:size(circle.positions, 1)
+    earth_position = circle.positions(perigee, :).';
     theta0 = mod(atan2(earth_position(2), earth_position(1)) - pi, 2 * pi);
     if theta0 > 1.5 * pi
         theta0 = theta0 - 2 * pi;
@@ -156,10 +155,6 @@ for perigee = 1:size(positions, 1)
         angles = epoch_angles;
     end
     for angle = angles
-        radial = [cos(angle); sin(angle); 0];
-        transverse = [-sin(angle); cos(angle); 0];
-        moon_position = model.distance_km * radial;
-        target_epoch = 0;
         if is_rth
             peri_time = (angle - model.moon_angle_ref_rad) * model.time_days;
             target_epoch = peri_time + 2;
@@ -175,29 +170,13 @@ for perigee = 1:size(positions, 1)
                 end
                 target_epoch = updated_epoch;
             end
-            if ~success
-                continue
-            end
-            target_epoch = earth.target_epoch_days;
-            duration = earth.duration_days;
-            initial_velocity = earth.initial_velocity_km_s;
-            arrival_velocity = earth.periapsis_velocity_pre_km_s;
-            earth_position = earth.periapsis_position_km;
-            earth_post_velocity = arrival_velocity + earth.delta_v_km_s;
         else
-            [duration, initial_velocity, arrival_velocity, success] = ...
-                orb2ds.internal.perigee_lambert(moon_position, earth_position, model, options);
-            if ~success
-                continue
-            end
+            [earth, success] = orb2ds.internal.earth_seed_leg( ...
+                problem, height, perigee, angle, 0, options, circle);
         end
-        outgoing = [dot(initial_velocity, radial); ...
-            dot(initial_velocity, transverse) - model.velocity_km_s; initial_velocity(3)];
-        earth = struct('initial_position_km', moon_position, 'initial_velocity_km_s', initial_velocity, ...
-            'periapsis_position_km', earth_position, 'periapsis_velocity_pre_km_s', arrival_velocity, ...
-            'delta_v_km_s', earth_post_velocity - arrival_velocity, ...
-            'duration_days', duration, 'moon_angle_rad', angle, ...
-            'outgoing_moon_asymptote_km_s', outgoing, 'target_epoch_days', target_epoch);
+        if ~success
+            continue
+        end
         leg_count = leg_count + 1;
         earth_legs{leg_count} = earth;
         perigee_samples(leg_count) = perigee;
@@ -326,7 +305,7 @@ for leg = 1:numel(earth_legs)
         'departure_phase_distance', phase_error(closest), 'altitude_km', height), ...
         'provenance', struct('database_row', row, 'perigee_sample', perigee_samples(leg), ...
         'database_departure_phase', entries.departure_phase(row), ...
-        'seed_target', problem.target));
+        'seed_target', problem.target, 'patching_method', 'natural'));
     if isempty(candidates)
         candidates = candidate;
     else
@@ -347,11 +326,9 @@ end
 
 function values = rank_values(candidate)
 %RANK_VALUES Prefer time-compatible exact database phases, then lunar alignment.
-if isfield(candidate.ranking, 'powered_score_km_s')
-    values = [candidate.timing.time_excess_days, ...
-        candidate.ranking.departure_phase_distance > 1e-10, ...
-        candidate.ranking.powered_score_km_s, ...
-        candidate.timing.moon_phase_mismatch_rad, candidate.timing.transfer_days];
+if strcmp(candidate.provenance.patching_method, 'powered')
+    values = orb2ds.internal.powered_rank_keys(candidate.timing, ...
+        candidate.ranking.departure_phase_distance, candidate.ranking.powered_score_km_s);
     return
 end
 values = [candidate.timing.time_excess_days, ...

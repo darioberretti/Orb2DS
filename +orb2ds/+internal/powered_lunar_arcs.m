@@ -70,18 +70,14 @@ for iteration = 1:options.patching.target_iterations
     anchored_peri = entry_time + updated_elapsed;
     exit_time = anchored_peri + forward.xe(end) * model.time_days;
     exit_rotating = forward.ye(:, end) .* scale;
-    exit_eci = orb2ds.internal.frames(exit_rotating.', exit_time, model, 'to_eci');
-    target = orb2ds.internal.target_eci(problem.target, target_epoch);
-    [positions, velocities] = orb2ds.internal.rp_circle_from_vinfplus(target, ...
-        earth_radius, model.gm_earth_km3_s2, options.patching.n_perigee);
-    [duration, first, last, success] = orb2ds.internal.perigee_lambert( ...
-        exit_eci(1:3).', positions(sample, :).', model, options);
-    if ~success
+    earth_leg = orb2ds.internal.earth_return_leg( ...
+        problem, exit_rotating, exit_time, earth_radius, sample, target_epoch, false, options);
+    if isempty(earth_leg)
         break
     end
     moon_eci = orb2ds.internal.frames([center.', 0, 0, 0], exit_time, model, 'to_eci');
-    relative_position = exit_eci(1:3).' - moon_eci(1:3).';
-    relative_velocity = first - moon_eci(4:6).';
+    relative_position = earth_leg.arc.initial_state(1:3) - moon_eci(1:3).';
+    relative_velocity = earth_leg.arc.initial_state(4:6) - moon_eci(4:6).';
     updated = orb2ds.internal.outgoing_asymptote(relative_position, relative_velocity, ...
         model.gm_moon_km3_s2);
     if any(~isfinite(updated)) || dot(relative_position, relative_velocity) <= 0
@@ -89,7 +85,7 @@ for iteration = 1:options.patching.target_iterations
     end
     angle = model.moon_angle_ref_rad + anchored_peri / model.time_days;
     updated = rotate(updated, -angle);
-    final_time = exit_time + duration;
+    final_time = earth_leg.arc.end_days;
     flight = final_time - timing.departure_days;
     updated_timing = orb2ds.internal.seed_timing(problem, raw_departure, phase, wait, flight);
     wait_change = abs(updated_timing.wait_days - timing.wait_days);
@@ -105,11 +101,10 @@ for iteration = 1:options.patching.target_iterations
     % Keep the last reconstructible iterate, including its velocity gap.
     inbound = arc('cr3bp', entry_time, anchored_peri, anchored_peri, pre);
     outbound = arc('cr3bp', anchored_peri, exit_time, anchored_peri, post);
-    earth_arc = arc('earth_two_body', exit_time, final_time, ...
-        exit_time, [exit_eci(1:3).'; first]);
+    earth_arc = earth_leg.arc;
     burn = struct('lunar_km_s', post(4:6) - pre(4:6), ...
-        'earth_eci_km_s', velocities(sample, :).' - last);
-    target_error = norm(target - orb2ds.internal.target_eci(problem.target, final_time));
+        'earth_eci_km_s', earth_leg.delta_v_eci_km_s);
+    target_error = earth_leg.target_epoch_error_km_s;
     timing.target_epoch_error_km_s = target_error;
     timing.phase = phase;
     patch = struct('iterations', iteration, 'outgoing_asymptote_error_km_s', ...

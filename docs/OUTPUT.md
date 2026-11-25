@@ -77,8 +77,9 @@ also gets commands for `node_table` and `print_result`; see [data inspection](LO
 
 Database generation is a separate operation. `build_orbit_moon_database` creates
 missing parent folders at its explicitly supplied filename. An existing
-compatible database is loaded; different orbit, grid or integration settings
-raise an error and require another filename. The result-overwrite boolean
+compatible database is loaded. The comparison wraps azimuths to `[0, 2*pi)`
+and removes duplicates from both grids. Different orbit, grid or integration
+settings raise an error and require another filename. The result-overwrite boolean
 does not authorize replacement or regeneration of a database.
 
 The example generation scripts also export `orbit.mat` once. An identical

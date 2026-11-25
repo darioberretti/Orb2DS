@@ -56,7 +56,15 @@ best_phase = min(phase_key(replicas));
 time_weight = options.patching.time_weight_m_s_day / 1000;
 lunar_weight = options.patching.lunar_impulse_weight;
 count = options.patching.n_candidates;
-best = zeros(0, 8);
+% The five comparison keys are followed by IDs and the unweighted burn.
+time_excess_col = 1;
+phase_col = 2;
+cost_col = 3;
+flight_col = 5;
+leg_col = 6;
+replica_col = 7;
+lunar_burn_col = 8;
+best = zeros(0, lunar_burn_col);
 worst = cutoff;
 
 % The neighboring speed bins make a cheap first pass for an incumbent.
@@ -79,9 +87,9 @@ for leg = legs(order).'
     value = transformed_out(leg);
     first = 1;
     last = numel(sorted_speed);
-    if worst(1) == 0 && worst(2) == best_phase
+    if worst(time_excess_col) == 0 && worst(phase_col) == best_phase
         % The score bounds the unweighted perilune speed difference.
-        budget = (worst(3) - earth_burn(leg)) / lunar_weight;
+        budget = (worst(cost_col) - earth_burn(leg)) / lunar_weight;
         margin = 16 * eps(max(1, max(abs([value, budget]))));
         if budget < -margin
             continue
@@ -106,11 +114,11 @@ end
 
 % Materialize only the retained pairs, in the order used by assembly.
 for k = 1:size(best, 1)
-    leg = best(k, 6);
-    replica = best(k, 7);
+    leg = best(k, leg_col);
+    replica = best(k, replica_col);
     row = rows(replica);
     earth = earth_legs(leg);
-    flight = best(k, 5);
+    flight = best(k, flight_col);
     inbound = flight - (orbit_days(replica) + earth.duration_days);
     timing = orb2ds.internal.seed_timing(problem, perilune_epoch(leg) - inbound - ...
         orbit_days(replica), departures.phase(replica), departures.wait_days(replica), flight);
@@ -119,11 +127,11 @@ for k = 1:size(best, 1)
         'wait_days', timing.wait_days, 'delta_v_km_s', entries.delta_v_km_s(row, :), ...
         'duration_days', orbit_days(replica), 'state_entry', entries.state_entry(row, :), ...
         'velocity_infinity_rth_km_s', incoming(replica, :));
-    lunar_burn = best(k, 8);
+    lunar_burn = best(k, lunar_burn_col);
     ranking = struct('earth_delta_v_km_s', earth_burn(leg), ...
         'lunar_delta_v_km_s', lunar_burn, ...
         'total_delta_v_km_s', departure_burn(replica) + lunar_burn + earth_burn(leg), ...
-        'powered_score_km_s', best(k, 3), ...
+        'powered_score_km_s', best(k, cost_col), ...
         'speed_mismatch_km_s', abs(outgoing_speed(leg) - speed(replica)), ...
         'departure_phase_distance', phase_error(replica), 'altitude_km', height);
     provenance = struct('database_row', row, 'perigee_sample', perigee_samples(leg), ...
@@ -142,16 +150,16 @@ end
         % Respect timing and phase before applying the cost lower bound.
         flight = orbit_days(batch) + earth_legs(leg).duration_days;
         peri_time = perilune_epoch(leg);
-        if isfinite(worst(1))
+        if isfinite(worst(time_excess_col))
             optimistic = orb2ds.internal.seed_timing(problem, peri_time - orbit_days(batch), ...
                 departures.phase(batch), departures.wait_days(batch), flight);
             cost_bound = departure_burn(batch) + lunar_weight * abs(transformed_in(batch) - ...
                 transformed_out(leg)) + earth_burn(leg) + time_weight * flight;
-            margin = 16 * eps(max(1, worst(3)));
-            keep = optimistic.time_excess_days < worst(1) | ...
-                (optimistic.time_excess_days == worst(1) & ...
-                (phase_key(batch) < worst(2) | ...
-                (phase_key(batch) == worst(2) & cost_bound <= worst(3) + margin)));
+            margin = 16 * eps(max(1, worst(cost_col)));
+            keep = optimistic.time_excess_days < worst(time_excess_col) | ...
+                (optimistic.time_excess_days == worst(time_excess_col) & ...
+                (phase_key(batch) < worst(phase_col) | ...
+                (phase_key(batch) == worst(phase_col) & cost_bound <= worst(cost_col) + margin)));
             batch = batch(keep);
             flight = flight(keep);
         end
@@ -166,12 +174,12 @@ end
             departures.phase(batch), departures.wait_days(batch), flight);
         cost = departure_burn(batch) + lunar_weight * lunar_burn + earth_burn(leg) + ...
             time_weight * flight;
-        keys = [timing.time_excess_days, phase_key(batch), cost, ...
-            timing.moon_phase_mismatch_rad, flight, repmat(leg, numel(batch), 1), batch, lunar_burn];
-        best = sortrows([best; keys(isfinite(cost), :)], 1:7);
+        rank = orb2ds.internal.powered_rank_keys(timing, phase_error(batch), cost);
+        keys = [rank, repmat(leg, numel(batch), 1), batch, lunar_burn];
+        best = sortrows([best; keys(isfinite(cost), :)], 1:replica_col);
         best = best(1:min(count, size(best, 1)), :);
         if size(best, 1) == count
-            local = best(end, 1:3);
+            local = best(end, 1:cost_col);
             first_difference = find(local ~= worst, 1);
             if ~isempty(first_difference) && local(first_difference) < worst(first_difference)
                 worst = local;

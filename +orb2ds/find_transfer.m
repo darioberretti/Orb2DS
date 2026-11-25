@@ -10,6 +10,8 @@ function result = find_transfer(problem, supplied)
 %   refines the guesses with the lowest weighted burn. Natural matching refines
 %   guesses in match order. Compare convergent delta-v solves by cost.
 %   validation.require_pass enables validation and selects by validated cost.
+%   Skip guesses whose timelines cannot fit the requested mesh refinement.
+%   Report the interval error if every assembled guess fails for this reason.
 %   A propagation or solver-timeline failure can end an individual start.
 %   The search records the failure and continues with the remaining starts.
 %   No database is generated and no transfer result is saved implicitly.
@@ -31,32 +33,18 @@ options = orb2ds.internal.options(supplied, problem.constraints);
 orb2ds.internal.check_solver(options);
 assert(options.patching.n_candidates >= options.n_starts, 'orb2ds:Options', ...
     'patching.n_candidates must be at least n_starts.');
-[candidates, diagnostics] = orb2ds.find_legs(problem, options);
-powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
-order = 1:numel(candidates);
-if powered
-    [order, transfers] = orb2ds.internal.rank_powered_guesses(problem, candidates, options);
-end
+[next_guess, diagnostics] = orb2ds.internal.prepare_guesses(problem, options);
 result = orb2ds.internal.empty_result(problem, options);
 result.status = 'no_seed_found';
 attempts = struct([]);
 count = 0;
 best = [];
-for index = order
-    if powered
-        transfer = transfers{index};
-    else
-        transfer = orb2ds.assemble_transfer(problem, candidates(index), options);
+while count < options.n_starts
+    [seed, transfer, index] = next_guess();
+    if isempty(seed)
+        break
     end
-    if isempty(transfer)
-        if options.output.display
-            fprintf('\n[Orb2DS] Candidate assembly\n\n');
-            fprintf('  Candidate                      : %d\n', index);
-            fprintf('  Outcome                        : SKIPPED -- no assembled finite lunar passage\n');
-        end
-        continue
-    end
-    % Measure the initial junction before meshing assigns a single entry node.
+    % Measure the initial junction from the original arc states on both sides.
     model = transfer.orbit.model;
     if isfield(transfer.provenance, 'powered_patch')
         gaps = transfer.provenance.powered_patch.soi_defects;
@@ -69,7 +57,6 @@ for index = order
         scale = [repmat(model.distance_km, 1, 3), repmat(model.velocity_km_s, 1, 3)];
         entry_gap = norm((flyby_entry - orbit_entry) ./ scale);
     end
-    seed = orb2ds.mesh_transfer(problem, transfer, options);
     if options.output.plot_initial_guess
         figure_handle = orb2ds.plot_initial_guess(transfer);
         figure_handle.Name = sprintf('Assembled initial guess: candidate %d', index);
@@ -80,7 +67,7 @@ for index = order
     if options.output.display
         fprintf('\n[Orb2DS] Transfer attempt %d/%d\n\n', count + 1, options.n_starts);
         fprintf('  Candidate                      : %d\n', index);
-        fprintf('  Database row                   : %d\n', candidates(index).orbit_moon.row_id);
+        fprintf('  Database row                   : %d\n', transfer.provenance.database_row);
     end
     [summary, current] = optimize_start(problem, seed, options, index, entry_gap);
     count = count + 1;
@@ -96,9 +83,6 @@ for index = order
         attempts = summary;
     else
         attempts(end + 1, 1) = summary;
-    end
-    if count >= options.n_starts
-        break
     end
 end
 result.attempts = attempts;

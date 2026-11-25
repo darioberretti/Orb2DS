@@ -158,7 +158,8 @@ states and both velocity definitions are checked for consistency on load.
 
 `find_legs` returns a compact ranked candidate array, copying the orbit-side
 departure data, Earth-side Lambert state/perigee/impulse, lunar asymptotes and
-source/ranking metadata. Assembly does not subsequently look up database rows.
+source/ranking metadata. The candidate records its matching method in
+`provenance.patching_method`. Assembly uses the copied leg data and method.
 `options.patching.lunar_flyby_matching_policy` accepts `"powered"` and
 `"natural"`. The default is `"powered"` with `impulse_nodes = 'all'` and
 `"natural"` with `impulse_nodes = 'endpoints'`. An explicit `"powered"`

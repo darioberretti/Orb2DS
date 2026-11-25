@@ -144,6 +144,7 @@ end
 function testValidatedRecordAndCompactPersistenceBothRoutes(testCase)
 require_casadi(testCase);
 options = testCase.TestData.options;
+options.validation.enabled = true;
 options.solver.name = 'ipopt';
 options.solver.run_feasibility = false;
 % IPOPT normally moves x0 away from bounds; suppress that for this reuse test.

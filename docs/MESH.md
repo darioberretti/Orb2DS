@@ -67,9 +67,10 @@ Factor 1 uses the global maximum step on every arc; it is the generic default.
 A disabled interval's event/offset values are retained but not resolved into times.
 
 An active interval must lie entirely inside the assembled transfer and have
-positive duration. Out-of-range or reversed intervals produce an error;
-offsets are never silently clipped. One interval is supported. There is no
-automatic error-based refinement.
+positive duration. `mesh_transfer` reports an error for an invalid interval.
+`build_initial_guess` and `find_transfer` try the next guess with the same
+offset and report that error if no assembled guess fits. Refinement uses one
+manually specified interval.
 
 The builder splits arcs at refinement boundaries and physical event times,
 then samples each subinterval with the applicable spacing. It does not overlay

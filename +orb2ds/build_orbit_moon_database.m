@@ -13,7 +13,8 @@ function database = build_orbit_moon_database(orbit, filename, supplied)
 %   Azimuths wrap to [0, 2*pi) and each distinct Cartesian burn is propagated
 %   once per phase sample.
 %   A same-name archive is reused only when orbit, grid and integration
-%   settings match. Existing files are never overwritten.
+%   settings match after normalizing azimuths in both grids.
+%   Existing files are never overwritten.
 %
 % INPUT:
 %   orbit     Complete physical orbit descriptor.
@@ -29,12 +30,16 @@ options = orb2ds.internal.options(supplied);
 orbit = orb2ds.internal.check_orbit(orbit);
 grid = options.database;
 validateattributes(grid.azimuths_rad, {'double'}, {'vector', 'real', 'finite'});
-grid.azimuths_rad = unique(mod(grid.azimuths_rad, 2 * pi), 'stable');
+grid.azimuths_rad = normalize_azimuths(grid.azimuths_rad);
 generation = struct('grid', grid, 'integration', options.integration);
 if isfile(filename)
     database = orb2ds.load_orbit_moon_database(filename);
     orb2ds.internal.same_orbit(database.orbit, orbit);
-    assert(isequaln(database.generation, generation), 'orb2ds:DatabaseSettings', ...
+    archived = database.generation;
+    if isfield(archived, 'grid') && isfield(archived.grid, 'azimuths_rad')
+        archived.grid.azimuths_rad = normalize_azimuths(archived.grid.azimuths_rad);
+    end
+    assert(isequaln(archived, generation), 'orb2ds:DatabaseSettings', ...
         'Existing database grid or integration settings differ; choose a new filename.');
     if options.output.display
         fprintf('\n[Orb2DS] Database reuse\n\n');
@@ -147,6 +152,11 @@ if options.output.display
     fprintf('\n  Lunar encounters             : %d\n', numel(database.encounters.row_id));
     fprintf('  Elapsed time [s]               : %.2f\n', toc(display_timer));
 end
+end
+
+function azimuths = normalize_azimuths(azimuths)
+%NORMALIZE_AZIMUTHS Wrap directions and retain their first occurrence.
+azimuths = unique(mod(azimuths, 2 * pi), 'stable');
 end
 
 function [value, terminal, direction] = encounter_events(~, state, model)

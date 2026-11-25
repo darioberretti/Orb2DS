@@ -44,6 +44,18 @@ different = testCase.TestData.orbit;
 different.period_days = different.period_days + 0.1;
 verifyError(testCase, @() orb2ds.internal.same_orbit(database.orbit, different), ...
     'orb2ds:OrbitMismatch');
+
+% Older archives stored the full azimuth list, including the duplicate endpoint.
+legacy_filename = fullfile(testCase.TestData.directory, 'legacy.mat');
+database.generation.grid.azimuths_rad = (0:4) * pi / 2;
+save(legacy_filename, 'database');
+options.database = database.generation.grid;
+reused = orb2ds.build_orbit_moon_database(testCase.TestData.orbit, legacy_filename, options);
+verifyEqual(testCase, reused, database);
+options.database.azimuths_rad(end) = [];
+reused = orb2ds.build_orbit_moon_database(testCase.TestData.orbit, legacy_filename, options);
+verifyEqual(testCase, reused, database);
+verifyEqual(testCase, orb2ds.load_orbit_moon_database(legacy_filename), database);
 end
 
 function testCaseRelativePathsAndLookup(testCase)

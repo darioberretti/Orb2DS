@@ -3,6 +3,9 @@ function [seed, diagnostics] = build_initial_guess(problem, supplied)
 %
 % PROTOTYPE:
 %   [seed, diagnostics] = orb2ds.build_initial_guess(problem, options)
+% DESCRIPTION:
+%   Skip guesses whose timelines cannot fit the requested mesh refinement.
+%   Report the interval error if every assembled guess fails for this reason.
 % INPUT:
 %   problem/options  Same contracts as find_transfer.
 % OUTPUT:
@@ -19,30 +22,12 @@ if nargin < 2
 end
 problem = orb2ds.internal.check_problem(problem);
 options = orb2ds.internal.options(supplied, problem.constraints);
-[candidates, diagnostics] = orb2ds.find_legs(problem, options);
-seed = [];
-diagnostics.selected_candidate = [];
-powered = strcmp(options.patching.lunar_flyby_matching_policy, 'powered');
-order = 1:numel(candidates);
-if powered
-    [order, transfers] = orb2ds.internal.rank_powered_guesses(problem, candidates, options);
-end
-for index = order
-    if powered
-        transfer = transfers{index};
-    else
-        transfer = orb2ds.assemble_transfer(problem, candidates(index), options);
-    end
-    if ~isempty(transfer)
-        seed = orb2ds.mesh_transfer(problem, transfer, options);
-        if options.output.plot_initial_guess
-            figure_handle = orb2ds.plot_initial_guess(transfer);
-            if strcmp(figure_handle.Visible, 'on')
-                drawnow;
-            end
-        end
-        diagnostics.selected_candidate = index;
-        return
+[next_guess, diagnostics] = orb2ds.internal.prepare_guesses(problem, options);
+[seed, transfer, diagnostics.selected_candidate] = next_guess();
+if ~isempty(seed) && options.output.plot_initial_guess
+    figure_handle = orb2ds.plot_initial_guess(transfer);
+    if strcmp(figure_handle.Visible, 'on')
+        drawnow;
     end
 end
 end

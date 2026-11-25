@@ -53,6 +53,48 @@ for index = find(valid)
 end
 end
 
+function testMeshRefinementSkipsIncompatibleGuesses(testCase)
+root = fileparts(fileparts(mfilename('fullpath')));
+old_path = path;
+cleanup = onCleanup(@() path(old_path));
+addpath(root);
+[problem, options] = orb2ds.load_case(fullfile(root, 'examples', 'config_transfer.m'));
+defaults = orb2ds.defaults.numerical_options();
+options.output = defaults.output;
+options.output.display = false;
+options.solver = defaults.solver;
+options.solver.run_feasibility = false;
+options.solver.max_iterations = 0;
+options.patching.lunar_flyby_matching_policy = 'powered';
+options.patching.max_altitude_trials = 1;
+problem.constraints.initial_phase = 0.2;
+
+% Pick an offset that starts before the first departure but fits a later guess.
+candidates = orb2ds.find_legs(problem, options);
+[order, transfers] = orb2ds.internal.rank_powered_guesses(problem, candidates, options);
+assertNotEmpty(testCase, order);
+approach_days = cellfun(@(transfer) transfer.events.moon_periapsis_days - ...
+    transfer.arcs(1).start_days, transfers(order));
+later = find(approach_days > approach_days(1) + 0.01, 1);
+assertNotEmpty(testCase, later);
+offset = mean(approach_days([1, later]));
+options.mesh.refinement = struct('from', 'moon_periapsis', ...
+    'from_offset_days', -offset, 'to', 'earth_periapsis', 'factor', 2);
+expected = order(find(approach_days >= offset, 1));
+verifyError(testCase, @() orb2ds.mesh_transfer(problem, transfers{order(1)}, options), ...
+    'orb2ds:MeshInterval');
+[seed, diagnostics] = orb2ds.build_initial_guess(problem, options);
+verifyNotEmpty(testCase, seed);
+verifyEqual(testCase, diagnostics.selected_candidate, expected);
+result = orb2ds.find_transfer(problem, options);
+verifyEqual(testCase, [result.attempts.candidate_index], expected);
+
+% If no assembled guess fits, report the same interval error.
+options.mesh.refinement.from_offset_days = -max(approach_days) - 1;
+verifyError(testCase, @() orb2ds.build_initial_guess(problem, options), 'orb2ds:MeshInterval');
+verifyError(testCase, @() orb2ds.find_transfer(problem, options), 'orb2ds:MeshInterval');
+end
+
 function testExploratoryRankingUsesSolverConvergenceThenCost(testCase)
 validated = struct('is_feasible', true, 'solver_converged', false, 'delta_v_m_s', 270);
 converged = struct('is_feasible', false, 'solver_converged', true, 'delta_v_m_s', 280);
